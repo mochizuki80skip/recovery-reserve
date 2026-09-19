@@ -38,7 +38,9 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-title">毎日の運用</div>
+        <button type="button" class="nav-item" data-section="retention"><span class="nav-icon">🗓️</span>離反対策リスト</button>
         <button type="button" class="nav-item" data-section="churn"><span class="nav-icon">📋</span>離反リスト</button>
+        <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📈</span>継続率・離反率</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">キャンペーン</div>
@@ -46,7 +48,7 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-title">システム</div>
-        <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📊</span>通信ログ</button>
+        <button type="button" class="nav-item" data-section="log"><span class="nav-icon">📊</span>通信ログ</button>
         <a class="nav-item" href="/manual.html" target="_blank" rel="noopener"><span class="nav-icon">📖</span>運用マニュアル<span class="nav-ext" aria-hidden="true">↗</span></a>
       </div>
       <a class="nav-link" href="/" target="_blank" rel="noopener">お客様向け表示 ›</a>
@@ -68,8 +70,8 @@
         <div class="home-grid">
           <div class="home-card accent">
             <div class="home-card-head">
-              <h3>離反リスト <small>最終来院 60〜120日・次回予約なし</small></h3>
-              <button type="button" class="link-btn" data-goto="churn">離反リストへ ›</button>
+              <h3>お客様の状況 <small>離反対策リスト・離反リスト</small></h3>
+              <button type="button" class="link-btn" data-goto="retention">離反対策リストへ ›</button>
             </div>
             <div class="home-stats" id="home-churn"><p class="admin-help">読み込み中…</p></div>
           </div>
@@ -86,7 +88,7 @@
           <div class="home-card">
             <div class="home-card-head">
               <h3>通信状況 <small>Threease との通信</small></h3>
-              <button type="button" class="link-btn" data-goto="stats">通信ログへ ›</button>
+              <button type="button" class="link-btn" data-goto="log">通信ログへ ›</button>
             </div>
             <div class="home-stats" id="home-stats"><p class="admin-help">読み込み中…</p></div>
           </div>
@@ -103,26 +105,67 @@
         </div>
       </section>
 
+      <!-- 離反対策リスト -->
+      <section class="admin-section" data-section="retention" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <p class="admin-help">最終来院から <strong>60日未満</strong> の「既存」のお客様です（60日を超えると離反リストに移ります）。次回のご予約が無い方に、早めに次回のご案内をします。</p>
+        <div class="filter-row">
+          <span class="filter-label">次回予約</span>
+          <div class="filter-group" data-filter="retNext">
+            <button type="button" data-value="none" class="is-active">なし</button>
+            <button type="button" data-value="has">あり</button>
+            <button type="button" data-value="all">すべて</button>
+          </div>
+          <span class="filter-label">最終来院から</span>
+          <div class="filter-group" data-filter="retMin">
+            <button type="button" data-value="0" class="is-active">すべて</button>
+            <button type="button" data-value="14">14日以上</button>
+            <button type="button" data-value="30">30日以上</button>
+            <button type="button" data-value="45">45日以上</button>
+          </div>
+        </div>
+        <div class="churn-layout">
+          <div class="churn-list-col"><div class="cust-list churn-list" data-list="retention"><p class="admin-help">読み込み中…</p></div></div>
+          <div class="churn-compose-col compose-slot"></div>
+        </div>
+      </section>
+
       <!-- 離反リスト -->
       <section class="admin-section" data-section="churn" hidden>
         <div class="churn-toolbar">
           <div class="clinic-tabs" role="tablist">
-            <button type="button" class="clinic-tab is-active" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
             <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
           </div>
           <div class="churn-status">
-            <span id="churn-status-text">—</span>
-            <button type="button" class="admin-btn-mini" id="churn-refresh">Threease から読み直す</button>
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
           </div>
         </div>
-        <p class="admin-help">前回のご来院から <strong>60日以上120日以内</strong> で、その後のご来院も次回のご予約も無い方です。60日を超えたばかりの方が上に来ます。毎朝 9時ごろに自動で読み込みます（読み直しは 30〜60秒かかります）。</p>
-
-        <div class="churn-layout">
-          <div class="churn-list-col">
-            <div id="churn-list" class="churn-list"><p class="admin-help">読み込み中…</p></div>
+        <p class="admin-help">最終来院から <strong>60日以上</strong> あいていて、次回のご予約が無い方です。期間を広げると、もっと前に離れた方も出せます。60日を超えたばかりの方が上に来ます。</p>
+        <div class="filter-row">
+          <span class="filter-label">最終来院からの日数</span>
+          <div class="filter-group" data-filter="churnRange">
+            <button type="button" data-value="60-90" class="is-active">60〜90日</button>
+            <button type="button" data-value="90-120">90〜120日</button>
+            <button type="button" data-value="120-180">120〜180日</button>
+            <button type="button" data-value="180-365">180〜365日</button>
+            <button type="button" data-value="60-9999">60日以上すべて</button>
           </div>
-          <div class="churn-compose-col" id="churn-compose" hidden>
-            <div class="admin-card compose-card">
+        </div>
+        <div class="churn-layout">
+          <div class="churn-list-col"><div class="cust-list churn-list" data-list="churn"><p class="admin-help">読み込み中…</p></div></div>
+          <div class="churn-compose-col compose-slot">
+            <div class="admin-card compose-card" id="compose-panel" hidden>
               <div class="compose-head">
                 <h2 id="compose-title">文面を作る</h2>
                 <button type="button" class="admin-btn-mini" id="compose-close">閉じる</button>
@@ -146,6 +189,33 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- 継続率・離反率 -->
+      <section class="admin-section" data-section="stats" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">対象期間</span>
+          <div class="filter-group" data-filter="statsMonths">
+            <button type="button" data-value="3">直近3ヶ月</button>
+            <button type="button" data-value="6" class="is-active">直近6ヶ月</button>
+            <button type="button" data-value="12">直近12ヶ月</button>
+          </div>
+        </div>
+        <p class="admin-help">
+          <strong>継続率</strong>: 対象期間に初めて来院した新規のお客様のうち、2回目〜6回目まで来院した割合。初回から60日経っていない方は「まだ判定できない」ので除きます（次回予約が入っている分は回数に含めません）。<br>
+          <strong>離反率</strong>: 対象期間に来院して60日以上経ったお客様のうち、その後の来院も次回予約も無い方の割合。担当は Threease の「最終来院の担当」です。
+        </p>
+        <div id="stats-tables"><p class="admin-help">読み込み中…</p></div>
       </section>
 
       <!-- キャンペーン管理 -->
@@ -346,7 +416,7 @@
       </section> <!-- /campaigns -->
 
       <!-- 通信ログ -->
-      <section class="admin-section" data-section="stats" hidden>
+      <section class="admin-section" data-section="log" hidden>
       <section class="admin-card">
         <h2>通信ログ（直近3日）</h2>
         <p class="admin-help">「上流成功率」は Threease を実際に読みに行った回数のうち成功した割合（キャッシュ命中は除外）。「キャッシュ率」が高いほど Threease への負荷が軽く、失敗・遅延が起きにくくなります。失敗が多い時はカレンダーに「?」枠が出やすくなります。</p>

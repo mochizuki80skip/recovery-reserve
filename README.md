@@ -87,15 +87,20 @@ Threease Pro API（api.threease.com/api/v1/therapists）
 ミツカルの「マルミ」と同じ構成。PC は左に固定メニュー（ホーム／毎日の運用／キャンペーン／システム）、スマホは横スクロールのピル型タブ。
 **離反リスト**、**キャンペーン管理**（限定メニュー・専用URL）、**通信ログ** があり、**ホーム** に離反リストの人数・キャンペーンの件数・通信状況をまとめて表示する。
 
-### 離反リスト（`api/_churn.js`）
+### お客様データ（`api/_customers.js`）と3つのページ
 
-最終来院から **60 日以上 120 日以内** で、その後の来院も次回予約も無いお客様を院ごとに一覧にし、連絡文面を作ってコピーできる。
+Threease のお客様一覧 API（初回来院日・初回担当・最終来院日・最終担当・次回予約日・来院回数・症状・紹介経路）を
+**院ごとに全件読んで**、最終来院が 400 日以内の人だけを Redis `recovery:customers:{clinic}` に保存する（48 時間）。
+全件読むのに三島院 約 15 秒・裾野院 約 40 秒かかる（Threease は 1 件あたり数 ms、並列にしても速くならない、期間や ID の絞り込みパラメータは効かない）ので、
+**毎朝 9:00 / 9:10 JST の cron**（`api/cron-churn.js`、`CRON_SECRET` があれば検証）で作り、管理画面は保存済みを返すだけ。「Threease から読み直す」で作り直せる。`vercel.json` で `maxDuration` 300 秒。
 
-- 求め方: Threease の「120 日前〜60 日前」の予約を読んで候補者（その期間に来院した人）を出し、候補者の ID をまとめて渡して「60 日前より後〜180 日先」に予約がある人を外す。お客様一覧 API は全件で 15〜40 秒かかり、期間の絞り込みも効かないため使わない。お客様一覧の `last_visit`/`next_visit` と突き合わせて 73/75 人が一致（差は他院の記録など）
-- 所要時間: 三島院 約 30 秒・裾野院 約 45 秒（Threease は返す予約 1 件あたり約 15ms、並列にしても速くならない）。`vercel.json` で `maxDuration` を 300 秒に設定
-- キャッシュ: Redis `recovery:churn:{clinic}` に 12 時間。**毎朝 9:00 / 9:10 JST の cron**（`api/cron-churn.js`、`CRON_SECRET` があれば検証）で両院分を作り直す。管理画面は基本キャッシュを表示し、「Threease から読み直す」で作り直す
-- 文面テンプレート: `api/admin/settings.js`（Redis `recovery:settings`、ローカルは `.local-settings.json`）。差し込み `{name}{last}{elapsed}{count}{clinic}{phone}{url}`。初期文面は `admin/admin.js` の `DEFAULT_TEMPLATES`
-- 検算: `node scripts/verify-churn.mjs 192`
+管理画面はこのデータを受け取って画面側（`admin/admin.js`）で絞り込み・集計する。
+
+- **離反対策リスト**: 最終来院が 60 日未満の「既存」。フィルター: 次回予約 なし（初期）／あり／すべて、最終来院から 14／30／45 日以上。経過が長い順
+- **離反リスト**: 最終来院から 60 日以上・次回予約なし。期間: 60〜90（初期）／90〜120／120〜180／180〜365／60 日以上すべて。60 日を超えたばかりの人が上
+- **継続率・離反率**: 対象期間（直近 3／6／12 ヶ月）に初回来院した新規のうち 2〜6 回目まで来た割合（初回担当別・最終担当別。初回から 60 日未満の人は除く。来院回数 = `reservation_count` − 次回予約 1 件）、および対象期間に来院して 60 日以上経った人のうち次回予約が無い割合（最終担当別）
+- 文面: 一覧の「文面を作る」→ テンプレート（`api/admin/settings.js`、Redis `recovery:settings`、ローカルは `.local-settings.json`）に `{name}{last}{elapsed}{count}{clinic}{phone}{url}` を差し込み → 手直し → コピー。初期文面は `admin/admin.js` の `DEFAULT_TEMPLATES`
+- Threease の担当が「スタッフ」（退職者の汎用名）や空欄の予約があるので、担当別の数字はその分を割り引いて見る
 
 - `admin/index.html` 骨組み、`admin/admin-layout.css` レイアウト、`admin/admin.css` 部品、`admin/admin.js` 動作
 - 開いていたメニューは `sessionStorage` に覚える（再読み込みしても同じページ）

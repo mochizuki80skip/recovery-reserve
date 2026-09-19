@@ -9,7 +9,7 @@
     }
   ],
   "functions": {
-    "api/admin/churn.js": { "maxDuration": 300 },
+    "api/admin/customers.js": { "maxDuration": 300 },
     "api/cron-churn.js": { "maxDuration": 300 }
   },
   "crons": [

@@ -12,23 +12,25 @@
     refreshTargetCourseOptions();
     bindPromoFilters();
     bindAdminNav();
-    bindChurnUiOnce();
+    bindCustomerUiOnce();
     showSection(sessionStorage.getItem(SECTION_KEY) || 'home');
     loadPromos();
     loadStats();
     loadTemplates();
-    loadChurnCachedForHome();
+    loadCustomersCachedForHome();
   }
   let _churnBound = false;
-  function bindChurnUiOnce() { if (_churnBound) return; _churnBound = true; bindChurnUi(); }
+  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); }
 
   // ---- メニュー（左メニュー / スマホはピル型タブ）----
   const SECTION_KEY = 'recovery-admin-section';
   const SECTIONS = {
     home: { title: 'ホーム', help: '離反リスト・キャンペーン・Threease との通信状況をまとめて確認できます。' },
+    retention: { title: '離反対策リスト', help: '最終来院から60日以内の既存のお客様。次回予約が無い方に早めにご案内します。' },
     churn: { title: '離反リスト', help: '最終来院から60日以上あいていて次回予約が無いお客様。連絡する文面をその場で作れます。' },
+    stats: { title: '継続率・離反率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
     campaigns: { title: 'キャンペーン管理', help: 'チラシや紹介用の限定メニューを登録し、専用URL（?promo=コード）を発行します。' },
-    stats: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
+    log: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
   };
 
   function showSection(name) {
@@ -39,7 +41,7 @@
     const h = $('admin-help-text'); if (h) h.textContent = SECTIONS[name].help;
     sessionStorage.setItem(SECTION_KEY, name);
     window.scrollTo({ top: 0 });
-    if (name === 'churn') loadChurn(churn.clinic);
+    if (LIST_SECTIONS.includes(name)) loadCustomers(cust.clinic);
   }
 
   let _adminNavBound = false;
@@ -101,7 +103,7 @@
     }
   }
 
-  // ---- 離反リスト ----
+  // ---- お客様データ（離反対策リスト・離反リスト・継続率/離反率） ----
   const CLINICS = {
     '192': { name: '長泉三島院', phone: '055-950-8703' },
     '193': { name: '裾野長泉院', phone: '055-993-6877' },
@@ -135,13 +137,28 @@
 {url}
 
 リカバリー鍼灸院 {clinic}` },
+    { id: 'nextvisit', name: '次回のご案内（既存の方）', body:
+`{name}様
+
+リカバリー鍼灸院 {clinic}です。先日はご来院ありがとうございました。
+前回（{last}）の施術の状態を保つため、次回は2〜3週間以内のご来院をおすすめしています。
+
+ご都合の良い日時があれば、公式LINEまたはお電話（{phone}）でお知らせください。
+空き状況はこちらからご覧いただけます。
+{url}
+
+リカバリー鍼灸院 {clinic}` },
     { id: 'short', name: '短い声かけ', body:
 `{name}様、リカバリー鍼灸院 {clinic}です。
 前回（{last}）から{elapsed}日ほど経ちましたが、その後お身体はいかがですか？
 気になることがあればいつでもご連絡ください。ご予約はこちらから → {url}` },
   ];
+  const LIST_SECTIONS = ['retention', 'churn', 'stats'];
 
-  const churn = { clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null };
+  const cust = {
+    clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonths: 6 },
+  };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
   function fmtBuiltAt(iso) {
@@ -149,89 +166,159 @@
     const d = new Date(iso);
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
+  function daysBetween(a, b) { return Math.round((new Date(`${b}T00:00:00Z`) - new Date(`${a}T00:00:00Z`)) / 86400000); }
+  function addDays(ymd, n) { const d = new Date(`${ymd}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function addMonths(ymd, n) { const d = new Date(`${ymd}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); }
+  function currentSection() { return sessionStorage.getItem(SECTION_KEY) || 'home'; }
 
-  async function loadChurn(clinic, { force = false } = {}) {
-    churn.clinic = clinic;
+  async function loadCustomers(clinic, { force = false } = {}) {
+    cust.clinic = clinic;
     document.querySelectorAll('.clinic-tab').forEach((b) => b.classList.toggle('is-active', b.dataset.clinic === clinic));
-    if (churn.data[clinic] && !force) { renderChurn(); return; }
-    if (churn.loading[clinic]) return;
-    churn.loading[clinic] = true;
-    renderChurn();
+    if (cust.data[clinic] && !force) { renderCustomerViews(); return; }
+    if (cust.loading[clinic]) return;
+    cust.loading[clinic] = true;
+    renderCustomerViews();
     try {
-      // まずキャッシュだけ見る（速い）。無ければ Threease から作る（30〜60秒）
-      let r = force ? null : await apiFetch(`/api/admin/churn?clinic=${clinic}&cached=1`).then((x) => x.json());
+      let r = force ? null : await apiFetch(`/api/admin/customers?clinic=${clinic}&cached=1`).then((x) => x.json());
       if (!r || !r.data) {
-        const st = $('churn-status-text');
-        if (st) st.textContent = 'Threease から読み込み中…（30〜60秒かかります）';
-        r = await apiFetch(`/api/admin/churn?clinic=${clinic}${force ? '&force=1' : ''}`).then((x) => x.json());
+        setCustStatus('Threease から読み込み中…（15〜40秒かかります）');
+        r = await apiFetch(`/api/admin/customers?clinic=${clinic}${force ? '&force=1' : ''}`).then((x) => x.json());
       }
       if (r.error) throw new Error(r.message || r.error);
-      churn.data[clinic] = r.data;
+      cust.data[clinic] = r.data;
     } catch (e) {
-      if (e && e.message !== 'unauthorized') churn.data[clinic] = { error: (e && e.message) || String(e) };
+      if (e && e.message !== 'unauthorized') cust.data[clinic] = { error: (e && e.message) || String(e) };
     } finally {
-      churn.loading[clinic] = false;
-      renderChurn();
+      cust.loading[clinic] = false;
+      renderCustomerViews();
       renderHome();
     }
   }
 
-  function renderChurn() {
-    const list = $('churn-list');
-    const st = $('churn-status-text');
-    if (!list) return;
-    const clinic = churn.clinic;
-    const d = churn.data[clinic];
-    if (churn.loading[clinic] && !d) {
-      list.innerHTML = '<p class="admin-help">読み込み中…</p>';
-      if (st) st.textContent = '読み込み中…';
+  function setCustStatus(text) {
+    document.querySelectorAll('.cust-status-text').forEach((el) => { el.textContent = text; });
+  }
+
+  // 経過日数つきの行（today はスナップショットの日付ではなく今日で計算する）
+  function rowsWithElapsed(d) {
+    const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    return d.rows.map((r) => ({ ...r, elapsed: r.last ? daysBetween(r.last, today) : null, today }));
+  }
+  function retentionRows(d) {
+    const f = cust.filters;
+    return rowsWithElapsed(d)
+      .filter((r) => r.elapsed != null && r.elapsed < 60 && r.elapsed >= Number(f.retMin))
+      .filter((r) => f.retNext === 'all' ? true : f.retNext === 'has' ? !!r.next : !r.next)
+      .sort((a, b) => b.elapsed - a.elapsed || a.kana.localeCompare(b.kana, 'ja'));
+  }
+  function churnRows(d) {
+    const [lo, hi] = cust.filters.churnRange.split('-').map(Number);
+    return rowsWithElapsed(d)
+      .filter((r) => r.elapsed != null && !r.next && r.elapsed >= lo && r.elapsed <= hi)
+      .sort((a, b) => a.elapsed - b.elapsed || a.kana.localeCompare(b.kana, 'ja'));
+  }
+
+  function renderCustomerViews() {
+    const clinic = cust.clinic;
+    const d = cust.data[clinic];
+    const lists = document.querySelectorAll('.cust-list');
+    if (cust.loading[clinic] && !d) {
+      lists.forEach((l) => { l.innerHTML = '<p class="admin-help">読み込み中…</p>'; });
+      $('stats-tables').innerHTML = '<p class="admin-help">読み込み中…</p>';
+      setCustStatus('読み込み中…');
       return;
     }
-    if (!d) { list.innerHTML = ''; return; }
+    if (!d) return;
     if (d.error) {
-      list.innerHTML = `<p class="admin-error">取得できませんでした: ${escapeHtml(d.error)}</p>`;
-      if (st) st.textContent = '';
+      lists.forEach((l) => { l.innerHTML = `<p class="admin-error">取得できませんでした: ${escapeHtml(d.error)}</p>`; });
+      $('stats-tables').innerHTML = '';
+      setCustStatus('');
       return;
     }
-    if (st) st.textContent = `Threease 読み込み ${fmtBuiltAt(d.builtAt)}（毎朝 9時ごろ自動）`;
-    if (!d.rows.length) {
-      list.innerHTML = '<div class="churn-empty">該当するお客様はいません</div>';
-      return;
-    }
-    const soon = d.rows.filter((r) => r.elapsed <= 67).length;
-    let html = `<p class="churn-summary"><b>${d.rows.length}</b> 人${soon ? `（うち 60日を超えて1週間以内: <b>${soon}</b> 人）` : ''}</p>`;
-    for (const r of d.rows) {
+    setCustStatus(`Threease 読み込み ${fmtBuiltAt(d.builtAt)}（毎朝 9時ごろ自動・${d.stats.total.toLocaleString()}人中 直近${d.keepDays}日以内 ${d.stats.kept.toLocaleString()}人）`);
+    renderList('retention', retentionRows(d), (r) => r.elapsed >= 45);
+    renderList('churn', churnRows(d), (r) => r.elapsed <= 67);
+    renderStats(d);
+  }
+
+  function renderList(kind, rows, isHot) {
+    const list = document.querySelector(`.cust-list[data-list="${kind}"]`);
+    if (!list) return;
+    if (!rows.length) { list.innerHTML = '<div class="churn-empty">該当するお客様はいません</div>'; return; }
+    const hot = rows.filter(isHot).length;
+    const hotLabel = kind === 'retention' ? '45日以上' : '60日を超えて1週間以内';
+    let html = `<p class="churn-summary"><b>${rows.length}</b> 人${hot ? `（うち ${hotLabel}: <b>${hot}</b> 人）` : ''}</p>`;
+    for (const r of rows) {
       const cls = ['churn-row'];
-      if (churn.selected && churn.selected.id === r.id) cls.push('is-selected');
-      if (r.elapsed <= 67) cls.push('is-soon');
-      const items = r.lastItems && r.lastItems.length ? escapeHtml(r.lastItems.join('・')) : '';
+      if (cust.selected && cust.selected.id === r.id) cls.push('is-selected');
+      if (isHot(r)) cls.push('is-soon');
+      const next = r.next ? `次回予約 <b>${fmtMD(r.next)}</b>` : '<span class="no-next">次回予約なし</span>';
       html += `<div class="${cls.join(' ')}" data-id="${r.id}">
         <div class="churn-name">${escapeHtml(r.name || '(名前なし)')} 様 <small>カルテ ${escapeHtml(r.code || '-')}</small></div>
         <button type="button" class="admin-btn-mini" data-compose="${r.id}">文面を作る</button>
-        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>（<span class="elapsed">${r.elapsed}日</span> 経過）／ 来院 <b>${r.count}</b> 回${r.lastStaff ? ` ／ 担当 ${escapeHtml(r.lastStaff)}` : ''}${items ? `<br>前回: ${items}` : ''}</div>
+        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>（<span class="elapsed">${r.elapsed}日</span> 経過）／ ${next} ／ 来院 <b>${r.count}</b> 回${r.ls ? ` ／ 担当 ${escapeHtml(r.ls)}` : ''}${r.first ? ` ／ 初回 ${fmtMD(r.first)}${r.fs ? `（${escapeHtml(r.fs)}）` : ''}` : ''}${r.sym && r.sym.length ? `<br>症状: ${escapeHtml(r.sym.join('・'))}` : ''}</div>
       </div>`;
     }
     list.innerHTML = html;
     list.querySelectorAll('button[data-compose]').forEach((b) => {
-      b.addEventListener('click', () => openCompose(d.rows.find((r) => String(r.id) === b.dataset.compose)));
+      b.addEventListener('click', () => openCompose(rows.find((r) => String(r.id) === b.dataset.compose), kind));
     });
   }
 
-  function getTemplates() {
-    return churn.templates && churn.templates.length ? churn.templates : DEFAULT_TEMPLATES;
+  // ---- 継続率・離反率 ----
+  function pct(n, d) { return d ? Math.round((n / d) * 1000) / 10 : null; }
+  function pctCell(n, d) {
+    const p = pct(n, d);
+    if (p == null) return '<td class="num muted">–</td>';
+    const cls = p >= 70 ? 'good' : p >= 40 ? 'warn' : 'bad';
+    return `<td class="num ${cls}">${p}%<small>${n}</small></td>`;
+  }
+  function groupBy(rows, key) {
+    const m = new Map();
+    for (const r of rows) { const k = r[key] || '（担当なし）'; if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+  }
+  function continuationTable(rows, key, title) {
+    const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
+    const line = (label, list) => `<tr><th>${escapeHtml(label)}</th><td class="num">${list.length}</td>${[2, 3, 4, 5, 6].map((k) => pctCell(list.filter((r) => visits(r) >= k).length, list.length)).join('')}</tr>`;
+    return `<div class="stats-block"><h3>${escapeHtml(title)}</h3>
+      <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>担当</th><th>新規</th><th>2回目</th><th>3回目</th><th>4回目</th><th>5回目</th><th>6回目</th></tr></thead>
+      <tbody>${line('全体', rows)}${groupBy(rows, key).map(([k, list]) => line(k, list)).join('')}</tbody></table></div></div>`;
+  }
+  function churnTable(rows, key, title) {
+    const line = (label, list) => { const churned = list.filter((r) => !r.next).length; const p = pct(churned, list.length); const cls = p == null ? 'muted' : p <= 30 ? 'good' : p <= 50 ? 'warn' : 'bad';
+      return `<tr><th>${escapeHtml(label)}</th><td class="num">${list.length}</td><td class="num">${churned}</td><td class="num ${cls}">${p == null ? '–' : p + '%'}</td></tr>`; };
+    return `<div class="stats-block"><h3>${escapeHtml(title)}</h3>
+      <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>担当</th><th>対象</th><th>離反</th><th>離反率</th></tr></thead>
+      <tbody>${line('全体', rows)}${groupBy(rows, key).map(([k, list]) => line(k, list)).join('')}</tbody></table></div></div>`;
+  }
+  function renderStats(d) {
+    const box = $('stats-tables');
+    if (!box) return;
+    const rows = rowsWithElapsed(d);
+    const today = rows[0] ? rows[0].today : new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const from = addMonths(today, -Number(cust.filters.statsMonths));
+    const judged = addDays(today, -60);
+    const cohort = rows.filter((r) => r.first && r.first >= from && r.first <= judged);
+    const existing = rows.filter((r) => r.last && r.last >= from && r.last <= judged);
+    box.innerHTML = `<p class="churn-summary">対象: 初回来院 ${fmtMD(from)}〜${fmtMD(judged)} の新規 <b>${cohort.length}</b> 人 ／ 最終来院が同期間のお客様 <b>${existing.length}</b> 人（${fmtMD(judged)} 以降に来た方は判定できないため除外）</p>`
+      + continuationTable(cohort, 'fs', '継続率（初回担当スタッフ別）')
+      + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）')
+      + churnTable(existing, 'ls', '離反率（最終担当スタッフ別）');
   }
 
+  // ---- 文面 ----
+  function getTemplates() { return cust.templates && cust.templates.length ? cust.templates : DEFAULT_TEMPLATES; }
   async function loadTemplates() {
     try {
       const r = await apiFetch('/api/admin/settings');
       if (!r.ok) return;
       const d = await r.json();
-      churn.templates = (d.settings && d.settings.churnTemplates && d.settings.churnTemplates.length) ? d.settings.churnTemplates : null;
+      cust.templates = (d.settings && d.settings.churnTemplates && d.settings.churnTemplates.length) ? d.settings.churnTemplates : null;
     } catch { /* 既定を使う */ }
   }
-
   function fillTemplate(body, person) {
-    const c = CLINICS[churn.clinic] || { name: '', phone: '' };
+    const c = CLINICS[cust.clinic] || { name: '', phone: '' };
     return String(body)
       .replace(/\{name\}/g, person.name || '')
       .replace(/\{last\}/g, fmtMD(person.last))
@@ -241,44 +328,51 @@
       .replace(/\{phone\}/g, c.phone)
       .replace(/\{url\}/g, location.origin + '/');
   }
-
-  function openCompose(person) {
+  function openCompose(person, kind) {
     if (!person) return;
-    churn.selected = person;
-    const box = $('churn-compose');
-    box.hidden = false;
-    $('compose-person').textContent = `${person.name} 様（カルテ ${person.code}）・最終来院 ${fmtMD(person.last)}・${person.elapsed}日経過・来院 ${person.count}回`;
+    cust.selected = person;
+    const panel = $('compose-panel');
+    const slot = document.querySelector(`.admin-section[data-section="${kind}"] .compose-slot`);
+    if (slot && panel.parentElement !== slot) slot.appendChild(panel);
+    panel.hidden = false;
+    document.querySelectorAll('.churn-layout').forEach((l) => l.classList.toggle('has-compose', l.contains(panel)));
+    $('compose-person').textContent = `${person.name} 様（カルテ ${person.code}）・最終来院 ${fmtMD(person.last)}・${person.elapsed}日経過・来院 ${person.count}回${person.next ? `・次回予約 ${fmtMD(person.next)}` : ''}`;
     const templates = getTemplates();
-    if (!churn.templateId || !templates.some((t) => t.id === churn.templateId)) churn.templateId = templates[0].id;
+    if (!cust.templateId || !templates.some((t) => t.id === cust.templateId)) cust.templateId = kind === 'retention' && templates.some((t) => t.id === 'nextvisit') ? 'nextvisit' : templates[0].id;
     renderTemplateChips();
     applyTemplate();
-    renderChurn();
-    if (window.innerWidth < 1000) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderCustomerViews();
+    if (window.innerWidth < 1000) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-
+  function closeCompose() { cust.selected = null; const p = $('compose-panel'); if (p) p.hidden = true; document.querySelectorAll('.churn-layout').forEach((l) => l.classList.remove('has-compose')); }
   function renderTemplateChips() {
     const wrap = $('compose-templates');
-    wrap.innerHTML = getTemplates().map((t) => `<button type="button" data-tpl="${escapeHtml(t.id)}" class="${t.id === churn.templateId ? 'is-active' : ''}">${escapeHtml(t.name)}</button>`).join('');
-    wrap.querySelectorAll('button[data-tpl]').forEach((b) => b.addEventListener('click', () => { churn.templateId = b.dataset.tpl; renderTemplateChips(); applyTemplate(); }));
+    wrap.innerHTML = getTemplates().map((t) => `<button type="button" data-tpl="${escapeHtml(t.id)}" class="${t.id === cust.templateId ? 'is-active' : ''}">${escapeHtml(t.name)}</button>`).join('');
+    wrap.querySelectorAll('button[data-tpl]').forEach((b) => b.addEventListener('click', () => { cust.templateId = b.dataset.tpl; renderTemplateChips(); applyTemplate(); }));
   }
-
   function applyTemplate() {
-    const t = getTemplates().find((x) => x.id === churn.templateId) || getTemplates()[0];
-    if (churn.selected) $('compose-text').value = fillTemplate(t.body, churn.selected);
+    const t = getTemplates().find((x) => x.id === cust.templateId) || getTemplates()[0];
+    if (cust.selected) $('compose-text').value = fillTemplate(t.body, cust.selected);
   }
-
   function renderTemplateEditor() {
-    const wrap = $('template-fields');
-    wrap.innerHTML = getTemplates().map((t, i) => `<div class="template-field" data-idx="${i}">
+    $('template-fields').innerHTML = getTemplates().map((t) => `<div class="template-field">
       <input type="text" value="${escapeHtml(t.name)}" data-tpl-name="${escapeHtml(t.id)}" placeholder="テンプレート名">
       <textarea rows="7" data-tpl-body="${escapeHtml(t.id)}">${escapeHtml(t.body)}</textarea>
     </div>`).join('');
   }
 
-  function bindChurnUi() {
-    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { churn.selected = null; $('churn-compose').hidden = true; loadChurn(b.dataset.clinic); }));
-    $('churn-refresh').addEventListener('click', () => loadChurn(churn.clinic, { force: true }));
-    $('compose-close').addEventListener('click', () => { churn.selected = null; $('churn-compose').hidden = true; renderChurn(); });
+  function bindCustomerUi() {
+    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { closeCompose(); loadCustomers(b.dataset.clinic); }));
+    document.querySelectorAll('.cust-refresh').forEach((b) => b.addEventListener('click', () => loadCustomers(cust.clinic, { force: true })));
+    document.querySelectorAll('.filter-group').forEach((g) => {
+      g.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+        g.querySelectorAll('button').forEach((x) => x.classList.toggle('is-active', x === b));
+        cust.filters[g.dataset.filter] = b.dataset.value;
+        closeCompose();
+        renderCustomerViews();
+      }));
+    });
+    $('compose-close').addEventListener('click', () => { closeCompose(); renderCustomerViews(); });
     $('compose-copy').addEventListener('click', async () => {
       const ok = await copyToClipboard($('compose-text').value);
       const info = $('compose-info');
@@ -301,7 +395,7 @@
         const r = await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: list } });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || '保存に失敗');
-        churn.templates = d.settings.churnTemplates;
+        cust.templates = d.settings.churnTemplates;
         renderTemplateChips(); applyTemplate();
         const info = $('compose-info'); info.textContent = 'テンプレートを保存しました'; info.hidden = false;
         setTimeout(() => { info.hidden = true; }, 2000);
@@ -311,7 +405,7 @@
       if (!confirm('テンプレートを初期の文面に戻しますか？')) return;
       try {
         await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: DEFAULT_TEMPLATES } });
-        churn.templates = null;
+        cust.templates = null;
         renderTemplateEditor(); renderTemplateChips(); applyTemplate();
       } catch { /* ignore */ }
     });
@@ -321,20 +415,25 @@
     const box = $('home-churn');
     if (!box) return;
     box.innerHTML = ['192', '193'].map((c) => {
-      const d = churn.data[c];
-      const n = d && !d.error ? d.rows.length : null;
-      const soon = d && !d.error ? d.rows.filter((r) => r.elapsed <= 67).length : 0;
-      return `<div class="home-stat"><div class="home-stat-num"><b>${n == null ? '–' : n}</b><span>人</span></div><small><b>${CLINICS[c].name}</b>${n == null ? '<br>未読み込み（離反リストを開くと読み込みます）' : `<br>60日超えて1週間以内 <b>${soon}</b> 人・読み込み ${fmtBuiltAt(d.builtAt)}`}</small></div>`;
+      const d = cust.data[c];
+      if (!d || d.error) return `<div class="home-stat"><div class="home-stat-num"><b>–</b></div><small><b>${CLINICS[c].name}</b><br>未読み込み（リストを開くと読み込みます）</small></div>`;
+      const saveF = { ...cust.filters };
+      const saveC = cust.clinic;
+      cust.clinic = c; cust.filters = { ...saveF, retNext: 'none', retMin: 0, churnRange: '60-90' };
+      const ret = retentionRows(d).length;
+      const ch = churnRows(d).length;
+      cust.filters = saveF; cust.clinic = saveC;
+      return `<div class="home-stat"><div class="home-stat-num"><b>${ret}</b><span>人</span></div><small><b>${CLINICS[c].name}</b> 次回予約なし（60日以内）<br>離反 60〜90日 <b>${ch}</b> 人・読み込み ${fmtBuiltAt(d.builtAt)}</small></div>`;
     }).join('');
   }
 
-  // ホーム用: キャッシュがある院だけ取り込む（Threease は読みに行かない）
-  async function loadChurnCachedForHome() {
+  // ホーム用: 保存済みがある院だけ取り込む（Threease は読みに行かない）
+  async function loadCustomersCachedForHome() {
     await Promise.all(['192', '193'].map(async (c) => {
-      if (churn.data[c]) return;
+      if (cust.data[c]) return;
       try {
-        const r = await apiFetch(`/api/admin/churn?clinic=${c}&cached=1`).then((x) => x.json());
-        if (r && r.data) churn.data[c] = r.data;
+        const r = await apiFetch(`/api/admin/customers?clinic=${c}&cached=1`).then((x) => x.json());
+        if (r && r.data) cust.data[c] = r.data;
       } catch { /* ignore */ }
     }));
     renderHomeChurn();

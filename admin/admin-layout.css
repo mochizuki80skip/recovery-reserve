@@ -181,9 +181,32 @@
 .template-field textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; line-height: 1.7; font-family: inherit; background: #fdfbf3; resize: vertical; }
 
 @media (min-width: 1000px) {
-  .churn-layout { grid-template-columns: minmax(0, 1fr) 440px; }
+  .churn-layout.has-compose { grid-template-columns: minmax(0, 1fr) 440px; }
   .churn-compose-col { position: sticky; top: 16px; }
+  .churn-layout:not(.has-compose) .churn-compose-col { display: none; }
   .churn-row { grid-template-columns: minmax(0, 1fr) auto; }
   .churn-meta { grid-column: 1; }
-  .churn-row .admin-btn-mini { grid-row: 1 / span 2; align-self: center; }
+  .churn-row .admin-btn-mini { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 }
+
+/* ==== フィルター・統計表 ==== */
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; }
+.filter-label { font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+.filter-group { display: flex; flex-wrap: wrap; gap: 4px; margin-right: 8px; }
+.filter-group button { appearance: none; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-family: inherit; font-size: 13px; cursor: pointer; }
+.filter-group button.is-active { background: var(--ink); border-color: var(--ink); color: var(--white); font-weight: 700; }
+.churn-meta .no-next { color: var(--error-ink); font-weight: 700; }
+.stats-block { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.stats-block h3 { margin: 0 0 10px; font-size: 15px; }
+.stats-table-wrap { overflow-x: auto; }
+.stats-table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14px; }
+.stats-table th, .stats-table td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; white-space: nowrap; }
+.stats-table thead th { font-size: 12px; color: var(--ink-soft); font-weight: 700; background: var(--bg); }
+.stats-table tbody th { font-weight: 700; }
+.stats-table tbody tr:first-child th, .stats-table tbody tr:first-child td { background: var(--gold-bg); }
+.stats-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-table td.num small { display: block; font-size: 10px; color: var(--ink-faint); font-weight: 400; }
+.stats-table td.good { color: #3f8a55; font-weight: 700; }
+.stats-table td.warn { color: #b58500; font-weight: 700; }
+.stats-table td.bad { color: var(--error-ink); font-weight: 700; }
+.stats-table td.muted { color: var(--ink-faint); }
