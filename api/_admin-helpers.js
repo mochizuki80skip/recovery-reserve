@@ -43,7 +43,7 @@ export function readJsonBody(req) {
   });
 }
 
-const PROMO_KEY = 'reserve:promos';
+const PROMO_KEY = 'recovery:promos';
 
 // ローカル確認時（Redis 未設定かつ Vercel 外）は .local-promos.json に読み書きする
 import { readFile, writeFile } from 'node:fs/promises';

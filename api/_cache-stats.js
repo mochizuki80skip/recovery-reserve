@@ -24,13 +24,13 @@ const STALE_TTL_SEC = 1800;  // 最後の good 値を 30 分まで保持（stale
 const FAIL_TTL_SEC = 15;     // good 値が無いときの失敗バックオフ
 
 function coursesCacheKey(clinic, forNewBool, startIso) {
-  return `cc:${clinic}:${forNewBool ? 't' : 'f'}:${startIso}`;
+  return `recovery:cc:${clinic}:${forNewBool ? 't' : 'f'}:${startIso}`;
 }
 function coursesFreshKey(clinic, forNewBool, startIso) {
-  return `ccf:${clinic}:${forNewBool ? 't' : 'f'}:${startIso}`;
+  return `recovery:ccf:${clinic}:${forNewBool ? 't' : 'f'}:${startIso}`;
 }
 function coursesFailKey(clinic, forNewBool, startIso) {
-  return `ccx:${clinic}:${forNewBool ? 't' : 'f'}:${startIso}`;
+  return `recovery:ccx:${clinic}:${forNewBool ? 't' : 'f'}:${startIso}`;
 }
 
 // 戻り値:

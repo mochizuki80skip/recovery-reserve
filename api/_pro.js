@@ -88,7 +88,7 @@ async function fetchBranchMeta(clinic) {
 }
 
 export async function getBranchMeta(clinic, { force = false } = {}) {
-  const key = `reserve:pro_meta:${clinic}`;
+  const key = `recovery:pro_meta:${clinic}`;
   if (!force) {
     const cached = await readCache(key);
     if (cached) return cached;
@@ -113,10 +113,10 @@ async function fetchBlock(clinic, range) {
 }
 
 const blockKeys = (clinic, rangeKey) => ({
-  cache: `reserve:pro_block:${clinic}:${rangeKey}`,
-  last: `reserve:pro_last:${clinic}:${rangeKey}`,
-  lock: `reserve:pro_lock:${clinic}:${rangeKey}`,
-  fail: `reserve:pro_fail:${clinic}:${rangeKey}`,
+  cache: `recovery:pro_block:${clinic}:${rangeKey}`,
+  last: `recovery:pro_last:${clinic}:${rangeKey}`,
+  lock: `recovery:pro_lock:${clinic}:${rangeKey}`,
+  fail: `recovery:pro_fail:${clinic}:${rangeKey}`,
 });
 
 async function refreshBlock(clinic, range, k) {

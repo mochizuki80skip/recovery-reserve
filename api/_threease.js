@@ -7,7 +7,7 @@ import { cleanEnv, readCache, writeCache } from './_store.js';
 
 const BASE = 'https://api.threease.com/api/v1/therapists';
 const AUTH_KEYS = ['access-token', 'token-type', 'client', 'expiry', 'uid'];
-const AUTH_KEY = 'reserve:threease_auth';
+const AUTH_KEY = 'recovery:threease_auth';
 const TIMEOUT_MS = 15000;
 
 function credentials() {
