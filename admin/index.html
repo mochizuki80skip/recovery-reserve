@@ -40,8 +40,12 @@
         <div class="nav-group-title">毎日の運用</div>
         <button type="button" class="nav-item" data-section="retention"><span class="nav-icon">🗓️</span>離反対策リスト</button>
         <button type="button" class="nav-item" data-section="churn"><span class="nav-icon">📋</span>離反リスト</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">分析</div>
         <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📈</span>新規継続率</button>
         <button type="button" class="nav-item" data-section="rates"><span class="nav-icon">📊</span>離反率・継続率</button>
+        <button type="button" class="nav-item" data-section="symptoms"><span class="nav-icon">🩺</span>症状別</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">設定</div>
@@ -237,6 +241,38 @@
           <strong>継続率</strong>: 最終来院が <strong>60日以内</strong> のお客様を「前回の担当」別に。次回予約が入っている方の割合です。
         </p>
         <div id="rates-tables"><p class="admin-help">読み込み中…</p></div>
+      </section>
+
+      <!-- 症状別 -->
+      <section class="admin-section" data-section="symptoms" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">新規の対象期間</span>
+          <div class="filter-group" data-filter="symMonths">
+            <button type="button" data-value="3">直近3ヶ月</button>
+            <button type="button" data-value="6" class="is-active">直近6ヶ月</button>
+            <button type="button" data-value="12">直近12ヶ月</button>
+          </div>
+          <span class="filter-label">表示</span>
+          <div class="filter-group" data-filter="symMin">
+            <button type="button" data-value="3" class="is-active">3人以上の症状</button>
+            <button type="button" data-value="1">すべて</button>
+          </div>
+        </div>
+        <p class="admin-help">
+          Threease のお客様情報に登録された「症状」ごとの集計です（複数の症状がある方は各症状に数えます）。<br>
+          <strong>継続率</strong>: 最終来院が60日以内の方のうち次回予約がある割合。<strong>離反率</strong>: 最終来院が120日以内の方のうち60日以上あいて次回予約が無い割合。<strong>新規</strong>: 対象期間に初めて来院した方の 2・3・6回目 到達率（初回から60日未満の方は除く）。
+        </p>
+        <div id="symptom-tables"><p class="admin-help">読み込み中…</p></div>
       </section>
 
       <!-- 手動ブロック -->

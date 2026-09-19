@@ -30,6 +30,7 @@
     churn: { title: '離反リスト', help: '最終来院から60日以上あいていて次回予約が無いお客様。連絡する文面をその場で作れます。' },
     stats: { title: '新規継続率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
     rates: { title: '離反率・継続率', help: '最後に担当した人ごとの離反率と、既存のお客様の継続率（次回予約の有無）。' },
+    symptoms: { title: '症状別', help: 'お客様情報の「症状」ごとに、人数・継続率・離反率・新規の到達率を見ます。' },
     block: { title: '手動ブロック', help: 'スタッフごとに時間帯を塞ぐと、お客様向けの空き状況から消えます。' },
     campaigns: { title: 'キャンペーン管理', help: 'チラシや紹介用の限定メニューを登録し、専用URL（?promo=コード）を発行します。' },
     log: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
@@ -156,11 +157,11 @@
 前回（{last}）から{elapsed}日ほど経ちましたが、その後お身体はいかがですか？
 気になることがあればいつでもご連絡ください。ご予約はこちらから → {url}` },
   ];
-  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates'];
+  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates', 'symptoms'];
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
-    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonths: 6 },
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonths: 6, symMonths: 6, symMin: 3 },
   };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
@@ -243,6 +244,7 @@
     renderList('churn', churnRows(d), (r) => r.elapsed <= 67);
     renderStats(d);
     renderRates(d);
+    renderSymptoms(d);
   }
 
   function renderList(kind, rows, isHot) {
@@ -470,6 +472,53 @@
       <div class="stats-block"><h3>継続率（前回の担当別）<small>最終来院が60日以内: ${existBase.length}人</small></h3>
         <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>前回の担当</th><th>人数</th><th>次回予約あり</th><th>継続率</th></tr></thead>
         <tbody>${contLine('全体', existBase)}${groupBy(existBase, 'ls').map(([k, list]) => contLine(k, list)).join('')}</tbody></table></div></div>`;
+  }
+
+  // ---- 症状別 ----
+  function renderSymptoms(d) {
+    const box = $('symptom-tables');
+    if (!box) return;
+    const rows = rowsWithElapsed(d);
+    const today = rows[0] ? rows[0].today : new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const from = addMonths(today, -Number(cust.filters.symMonths || 6));
+    const judged = addDays(today, -60);
+    const minPeople = Number(cust.filters.symMin || 3);
+    const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
+
+    // 症状 → 人の一覧（複数症状は各症状に数える。未記入は「（未記入）」）
+    const groups = new Map();
+    for (const r of rows) {
+      const syms = r.sym && r.sym.length ? r.sym : ['（未記入）'];
+      for (const s of syms) { if (!groups.has(s)) groups.set(s, []); groups.get(s).push(r); }
+    }
+    const line = (label, list, isTotal) => {
+      const existing = list.filter((r) => r.elapsed != null && r.elapsed < 60);
+      const booked = existing.filter((r) => !!r.next).length;
+      const within120 = list.filter((r) => r.elapsed != null && r.elapsed <= 120);
+      const churned = within120.filter((r) => r.elapsed >= 60 && !r.next).length;
+      const cohort = list.filter((r) => r.first && r.first >= from && r.first <= judged);
+      const avg = list.length ? Math.round((list.reduce((a, r) => a + visits(r), 0) / list.length) * 10) / 10 : null;
+      const cont = pct(booked, existing.length);
+      const churn = pct(churned, within120.length);
+      const contCls = cont == null ? 'muted' : cont >= 60 ? 'good' : cont >= 40 ? 'warn' : 'bad';
+      const churnCls = churn == null ? 'muted' : churn <= 20 ? 'good' : churn <= 35 ? 'warn' : 'bad';
+      return `<tr${isTotal ? ' class="total"' : ''}><th>${escapeHtml(label)}</th>
+        <td class="num">${list.length}</td>
+        <td class="num">${avg == null ? '–' : avg}</td>
+        <td class="num ${contCls}">${cont == null ? '–' : cont + '%'}<small>${booked}/${existing.length}</small></td>
+        <td class="num ${churnCls}">${churn == null ? '–' : churn + '%'}<small>${churned}/${within120.length}</small></td>
+        <td class="num">${cohort.length}</td>
+        ${[2, 3, 6].map((k) => pctCell(cohort.filter((r) => visits(r) >= k).length, cohort.length)).join('')}
+      </tr>`;
+    };
+    const entries = [...groups.entries()].filter(([k, list]) => k === '（未記入）' || list.length >= minPeople)
+      .sort((a, b) => (a[0] === '（未記入）') - (b[0] === '（未記入）') || b[1].length - a[1].length);
+    const withSym = rows.filter((r) => r.sym && r.sym.length).length;
+    box.innerHTML = `<p class="churn-summary">症状の登録あり <b>${withSym}</b> 人 ／ 未記入 <b>${rows.length - withSym}</b> 人（最終来院が${d.keepDays}日以内の ${rows.length} 人中）</p>
+      <div class="stats-block"><h3>症状別<small>新規の対象期間: 初回来院 ${fmtMD(from)}〜${fmtMD(judged)}</small></h3>
+      <div class="stats-table-wrap"><table class="stats-table sym-table"><thead><tr>
+        <th>症状</th><th>人数</th><th>平均<br>来院回数</th><th>継続率<br><small>既存・次回予約あり</small></th><th>離反率<br><small>60〜120日・予約なし</small></th><th>新規</th><th>2回目</th><th>3回目</th><th>6回目</th>
+      </tr></thead><tbody>${line('全体', rows, true)}${entries.map(([k, list]) => line(k, list)).join('')}</tbody></table></div></div>`;
   }
 
   // ---- 手動ブロック ----

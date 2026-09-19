@@ -235,3 +235,5 @@
 .blk-cell.blk-block-all { background: #f8d2cc; color: #7a1f14; }
 .blk-cell.blk-all.blk-free { background: var(--gold-bg); border-color: var(--gold); color: var(--gold-deep); font-weight: 700; }
 .stats-block h3 small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 12px; margin-top: 2px; }
+.sym-table th:first-child, .sym-table td:first-child { position: sticky; left: 0; background: var(--surface); }
+.sym-table tbody tr.total th, .sym-table tbody tr.total td { background: var(--gold-bg); }
