@@ -20,7 +20,7 @@
     loadCustomersCachedForHome();
   }
   let _churnBound = false;
-  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); }
+  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); }
 
   // ---- メニュー（左メニュー / スマホはピル型タブ）----
   const SECTION_KEY = 'recovery-admin-section';
@@ -28,7 +28,9 @@
     home: { title: 'ホーム', help: '離反リスト・キャンペーン・Threease との通信状況をまとめて確認できます。' },
     retention: { title: '離反対策リスト', help: '最終来院から60日以内の既存のお客様。次回予約が無い方に早めにご案内します。' },
     churn: { title: '離反リスト', help: '最終来院から60日以上あいていて次回予約が無いお客様。連絡する文面をその場で作れます。' },
-    stats: { title: '継続率・離反率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
+    stats: { title: '新規継続率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
+    rates: { title: '離反率・継続率', help: '最後に担当した人ごとの離反率と、既存のお客様の継続率（次回予約の有無）。' },
+    block: { title: '手動ブロック', help: 'スタッフごとに時間帯を塞ぐと、お客様向けの空き状況から消えます。' },
     campaigns: { title: 'キャンペーン管理', help: 'チラシや紹介用の限定メニューを登録し、専用URL（?promo=コード）を発行します。' },
     log: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
   };
@@ -42,6 +44,7 @@
     sessionStorage.setItem(SECTION_KEY, name);
     window.scrollTo({ top: 0 });
     if (LIST_SECTIONS.includes(name)) loadCustomers(cust.clinic);
+    if (name === 'block') loadBlockDay();
   }
 
   let _adminNavBound = false;
@@ -153,7 +156,7 @@
 前回（{last}）から{elapsed}日ほど経ちましたが、その後お身体はいかがですか？
 気になることがあればいつでもご連絡ください。ご予約はこちらから → {url}` },
   ];
-  const LIST_SECTIONS = ['retention', 'churn', 'stats'];
+  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates'];
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
@@ -239,6 +242,7 @@
     renderList('retention', retentionRows(d), (r) => r.elapsed >= 45);
     renderList('churn', churnRows(d), (r) => r.elapsed <= 67);
     renderStats(d);
+    renderRates(d);
   }
 
   function renderList(kind, rows, isHot) {
@@ -300,11 +304,9 @@
     const from = addMonths(today, -Number(cust.filters.statsMonths));
     const judged = addDays(today, -60);
     const cohort = rows.filter((r) => r.first && r.first >= from && r.first <= judged);
-    const existing = rows.filter((r) => r.last && r.last >= from && r.last <= judged);
-    box.innerHTML = `<p class="churn-summary">対象: 初回来院 ${fmtMD(from)}〜${fmtMD(judged)} の新規 <b>${cohort.length}</b> 人 ／ 最終来院が同期間のお客様 <b>${existing.length}</b> 人（${fmtMD(judged)} 以降に来た方は判定できないため除外）</p>`
+    box.innerHTML = `<p class="churn-summary">対象: 初回来院 ${fmtMD(from)}〜${fmtMD(judged)} の新規 <b>${cohort.length}</b> 人（${fmtMD(judged)} 以降に初めて来た方は判定できないため除外）</p>`
       + continuationTable(cohort, 'fs', '継続率（初回担当スタッフ別）')
-      + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）')
-      + churnTable(existing, 'ls', '離反率（最終担当スタッフ別）');
+      + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）');
   }
 
   // ---- 文面 ----
@@ -437,6 +439,150 @@
       } catch { /* ignore */ }
     }));
     renderHomeChurn();
+  }
+
+  // ---- 離反率・継続率（最終担当別） ----
+  function renderRates(d) {
+    const box = $('rates-tables');
+    if (!box) return;
+    const rows = rowsWithElapsed(d);
+    const churnBase = rows.filter((r) => r.elapsed != null && r.elapsed <= 120); // 120日以内に担当した人
+    const isChurned = (r) => r.elapsed >= 60 && !r.next;             // うち 60〜120日・次回予約なし
+    const existBase = rows.filter((r) => r.elapsed != null && r.elapsed < 60);
+    const totalChurned = churnBase.filter(isChurned).length;
+    const churnLine = (label, list) => {
+      const churned = list.filter(isChurned).length;
+      const p = pct(churned, list.length);
+      const cls = p == null ? 'muted' : p <= 20 ? 'good' : p <= 35 ? 'warn' : 'bad';
+      const share = pct(churned, totalChurned);
+      return `<tr><th>${escapeHtml(label)}</th><td class="num">${list.length}</td><td class="num">${churned}</td><td class="num ${cls}">${p == null ? '–' : p + '%'}</td><td class="num muted">${share == null ? '–' : share + '%'}</td></tr>`;
+    };
+    const contLine = (label, list) => {
+      const booked = list.filter((r) => !!r.next).length;
+      const p = pct(booked, list.length);
+      const cls = p == null ? 'muted' : p >= 60 ? 'good' : p >= 40 ? 'warn' : 'bad';
+      return `<tr><th>${escapeHtml(label)}</th><td class="num">${list.length}</td><td class="num">${booked}</td><td class="num ${cls}">${p == null ? '–' : p + '%'}</td></tr>`;
+    };
+    box.innerHTML = `
+      <div class="stats-block"><h3>離反率（最後に担当した人別）<small>最終来院が120日以内: ${churnBase.length}人、うち60日以上あいて次回予約なし（離反）: ${totalChurned}人</small></h3>
+        <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>最終担当</th><th>担当した人<br><small>最終来院120日以内</small></th><th>離反<br><small>60〜120日・次回予約なし</small></th><th>離反率</th><th>離反全体に<br>占める割合</th></tr></thead>
+        <tbody>${churnLine('全体', churnBase)}${groupBy(churnBase, 'ls').map(([k, list]) => churnLine(k, list)).join('')}</tbody></table></div></div>
+      <div class="stats-block"><h3>継続率（前回の担当別）<small>最終来院が60日以内: ${existBase.length}人</small></h3>
+        <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>前回の担当</th><th>人数</th><th>次回予約あり</th><th>継続率</th></tr></thead>
+        <tbody>${contLine('全体', existBase)}${groupBy(existBase, 'ls').map(([k, list]) => contLine(k, list)).join('')}</tbody></table></div></div>`;
+  }
+
+  // ---- 手動ブロック ----
+  const blk = { clinic: '192', date: '', data: null, loading: false, saving: false };
+  function todayYmd() { return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
+
+  async function loadBlockDay(clinic, date) {
+    if (clinic) blk.clinic = clinic;
+    if (date) blk.date = date;
+    if (!blk.date) blk.date = todayYmd();
+    document.querySelectorAll('.blk-clinic-tab').forEach((b) => b.classList.toggle('is-active', b.dataset.clinic === blk.clinic));
+    const input = $('blk-date'); if (input) input.value = blk.date;
+    blk.loading = true; blk.data = null;
+    renderBlockGrid();
+    try {
+      const r = await apiFetch(`/api/busy?clinic=${blk.clinic}&date=${blk.date}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.message || d.error || 'error');
+      blk.data = d;
+    } catch (e) {
+      if (e && e.message !== 'unauthorized') blk.data = { error: (e && e.message) || String(e) };
+    } finally {
+      blk.loading = false;
+      renderBlockGrid();
+    }
+  }
+
+  function cellState(d, staffId, slotLabel) {
+    const t = toMinutes(slotLabel);
+    const tEnd = t + d.step;
+    const ranges = d.work[staffId] || [];
+    if (!ranges.some(([s, e]) => s <= t && tEnd <= e)) return 'off';
+    if (d.reservations.some((r) => r.staffId === staffId && r.start < tEnd && t < r.end)) return 'res';
+    if ((d.blocks[String(staffId)] || []).includes(slotLabel)) return 'block';
+    return 'free';
+  }
+  function toMinutes(hhmm) { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; }
+
+  function renderBlockGrid() {
+    const box = $('blk-grid');
+    const status = $('blk-status');
+    if (!box) return;
+    const d = blk.data;
+    if (blk.loading && !d) { box.innerHTML = '<p class="admin-help">読み込み中…</p>'; status.textContent = ''; return; }
+    if (!d) return;
+    if (d.error) { box.innerHTML = `<p class="admin-error">取得できませんでした: ${escapeHtml(d.error)}</p>`; return; }
+    const wd = ['日', '月', '火', '水', '木', '金', '土'][new Date(`${blk.date}T00:00:00+09:00`).getDay()];
+    const label = `${fmtMD(blk.date)}（${wd}）`;
+    if (d.outOfRange) { box.innerHTML = '<div class="churn-empty">この日は表示できません（本日から約2か月先まで）</div>'; status.textContent = label; return; }
+    if (!d.staff.length) { box.innerHTML = '<div class="churn-empty">この日はシフトが入っていません</div>'; status.textContent = label; return; }
+    const allBlocks = d.blocks['*'] || [];
+    let nBlocks = allBlocks.length;
+    for (const s of d.staff) nBlocks += (d.blocks[String(s.id)] || []).length;
+    status.innerHTML = `${label} ／ 出勤 <b>${d.staff.length}</b> 人 ／ 手動ブロック <b>${nBlocks}</b> 枠${d.stale ? '（Threease の予約は前回取得分）' : ''}`;
+    let html = '<table class="blk-grid"><thead><tr><th></th>';
+    for (const s of d.staff) html += `<th>${escapeHtml(s.name)}</th>`;
+    html += '<th class="blk-all">全員</th></tr></thead><tbody>';
+    for (const slot of d.axis) {
+      html += `<tr><th>${slot}</th>`;
+      for (const s of d.staff) {
+        let st = cellState(d, s.id, slot);
+        const allBlocked = allBlocks.includes(slot);
+        if (st === 'free' && allBlocked) st = 'block-all';
+        const clickable = st === 'free' || st === 'block';
+        const text = st === 'res' ? '予約' : st === 'block' ? 'ブロック' : st === 'block-all' ? '全員' : st === 'off' ? '' : '';
+        html += clickable
+          ? `<td class="blk-cell blk-${st}"><button type="button" data-staff="${s.id}" data-slot="${slot}">${text || '&nbsp;'}</button></td>`
+          : `<td class="blk-cell blk-${st}">${text}</td>`;
+      }
+      const anyWorking = d.staff.some((s) => cellState(d, s.id, slot) !== 'off');
+      html += anyWorking
+        ? `<td class="blk-cell blk-all ${allBlocks.includes(slot) ? 'blk-block' : 'blk-free'}"><button type="button" data-staff="*" data-slot="${slot}">${allBlocks.includes(slot) ? '解除' : '塞ぐ'}</button></td>`
+        : '<td class="blk-cell blk-off"></td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    box.innerHTML = html;
+    box.querySelectorAll('button[data-slot]').forEach((b) => b.addEventListener('click', () => toggleBlock(b.dataset.staff, b.dataset.slot)));
+  }
+
+  async function toggleBlock(staffKey, slot) {
+    const d = blk.data;
+    if (!d || blk.saving) return;
+    const blocks = JSON.parse(JSON.stringify(d.blocks || {}));
+    const list = blocks[staffKey] || [];
+    const i = list.indexOf(slot);
+    if (i >= 0) list.splice(i, 1); else list.push(slot);
+    list.sort();
+    if (list.length) blocks[staffKey] = list; else delete blocks[staffKey];
+    d.blocks = blocks;
+    renderBlockGrid();
+    blk.saving = true;
+    try {
+      const r = await apiFetch('/api/busy', { method: 'PUT', body: { clinic: blk.clinic, date: blk.date, blocks } });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.message || j.error || '保存に失敗');
+      d.blocks = j.blocks || {};
+    } catch (e) {
+      alert('保存できませんでした: ' + ((e && e.message) || e));
+      await loadBlockDay();
+    } finally {
+      blk.saving = false;
+      renderBlockGrid();
+    }
+  }
+
+  function bindBlockUi() {
+    document.querySelectorAll('.blk-clinic-tab').forEach((b) => b.addEventListener('click', () => loadBlockDay(b.dataset.clinic)));
+    const shift = (n) => { const dt = new Date(`${blk.date || todayYmd()}T00:00:00Z`); dt.setUTCDate(dt.getUTCDate() + n); loadBlockDay(null, dt.toISOString().slice(0, 10)); };
+    $('blk-prev').addEventListener('click', () => shift(-1));
+    $('blk-next').addEventListener('click', () => shift(1));
+    $('blk-today').addEventListener('click', () => loadBlockDay(null, todayYmd()));
+    $('blk-date').addEventListener('change', (e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) loadBlockDay(null, e.target.value); });
   }
 
   async function loadStats() {

@@ -7,6 +7,7 @@
 //   そのコースを担当できるスタッフだけで空きを計算する。対応表に無い ID（限定メニュー等）は duration だけ使う。
 import { CLINIC_IDS, getBranchMeta, getBlock, blockIndexFor, addDaysYmd, diffDays, MAX_BLOCK } from './_pro.js';
 import { computeDay } from './_slots.js';
+import { getBusy } from './_busy.js';
 
 const MAX_DAYS = 7;
 
@@ -23,7 +24,7 @@ export function resolveCourse(meta, courseId, durationParam) {
 export async function computeForDate(clinic, date, courseId, durationParam, { force = false } = {}) {
   const k = blockIndexFor(date);
   if (k < 0 || k > MAX_BLOCK) return { available: [], axis: [], fetchedAt: null, stale: false, refreshing: false, error: '', skipped: true };
-  const [meta, block] = await Promise.all([getBranchMeta(clinic), getBlock(clinic, k, { force })]);
+  const [meta, block, busy] = await Promise.all([getBranchMeta(clinic), getBlock(clinic, k, { force }), getBusy(clinic)]);
   const { productId, minutes } = resolveCourse(meta, courseId, durationParam);
   const day = computeDay({
     date,
@@ -33,6 +34,7 @@ export async function computeForDate(clinic, date, courseId, durationParam, { fo
     productId,
     minutes,
     unitCount: meta.unitCount,
+    manual: busy[date] || {}, // 手動ブロック（管理画面で塞いだ枠）
   });
   return { ...day, minutes, productId, fetchedAt: block.fetchedAt, stale: block.stale, refreshing: block.refreshing, error: block.error };
 }

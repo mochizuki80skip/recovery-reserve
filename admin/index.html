@@ -40,7 +40,12 @@
         <div class="nav-group-title">毎日の運用</div>
         <button type="button" class="nav-item" data-section="retention"><span class="nav-icon">🗓️</span>離反対策リスト</button>
         <button type="button" class="nav-item" data-section="churn"><span class="nav-icon">📋</span>離反リスト</button>
-        <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📈</span>継続率・離反率</button>
+        <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📈</span>新規継続率</button>
+        <button type="button" class="nav-item" data-section="rates"><span class="nav-icon">📊</span>離反率・継続率</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">設定</div>
+        <button type="button" class="nav-item" data-section="block"><span class="nav-icon">🚫</span>手動ブロック</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">キャンペーン</div>
@@ -48,7 +53,7 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-title">システム</div>
-        <button type="button" class="nav-item" data-section="log"><span class="nav-icon">📊</span>通信ログ</button>
+        <button type="button" class="nav-item" data-section="log"><span class="nav-icon">📡</span>通信ログ</button>
         <a class="nav-item" href="/manual.html" target="_blank" rel="noopener"><span class="nav-icon">📖</span>運用マニュアル<span class="nav-ext" aria-hidden="true">↗</span></a>
       </div>
       <a class="nav-link" href="/" target="_blank" rel="noopener">お客様向け表示 ›</a>
@@ -211,11 +216,46 @@
             <button type="button" data-value="12">直近12ヶ月</button>
           </div>
         </div>
-        <p class="admin-help">
-          <strong>継続率</strong>: 対象期間に初めて来院した新規のお客様のうち、2回目〜6回目まで来院した割合。初回から60日経っていない方は「まだ判定できない」ので除きます（次回予約が入っている分は回数に含めません）。<br>
-          <strong>離反率</strong>: 対象期間に来院して60日以上経ったお客様のうち、その後の来院も次回予約も無い方の割合。担当は Threease の「最終来院の担当」です。
-        </p>
+        <p class="admin-help">対象期間に初めて来院した新規のお客様のうち、2回目〜6回目まで来院した割合です。初回から60日経っていない方は「まだ判定できない」ので除きます（次回予約が入っている分は回数に含めません）。</p>
         <div id="stats-tables"><p class="admin-help">読み込み中…</p></div>
+      </section>
+
+      <!-- 離反率・継続率 -->
+      <section class="admin-section" data-section="rates" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <p class="admin-help">
+          <strong>離反率</strong>: 最終来院が120日以内のお客様を「最後に担当した人」別に。そのうち最終来院から <strong>60〜120日</strong> あいて次回予約が無い方を離反として数えます。<br>
+          <strong>継続率</strong>: 最終来院が <strong>60日以内</strong> のお客様を「前回の担当」別に。次回予約が入っている方の割合です。
+        </p>
+        <div id="rates-tables"><p class="admin-help">読み込み中…</p></div>
+      </section>
+
+      <!-- 手動ブロック -->
+      <section class="admin-section" data-section="block" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="blk-clinic-tab is-active clinic-tab-like" data-clinic="192">長泉三島院</button>
+            <button type="button" class="blk-clinic-tab clinic-tab-like" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="blk-datenav">
+            <button type="button" class="admin-btn-mini" id="blk-prev">‹ 前日</button>
+            <input type="date" id="blk-date">
+            <button type="button" class="admin-btn-mini" id="blk-next">翌日 ›</button>
+            <button type="button" class="admin-btn-mini" id="blk-today">今日</button>
+          </div>
+        </div>
+        <p class="admin-help">枠をタップすると <span class="blk-legend blk-block">手動ブロック</span> になり、お客様向けの空き状況から消えます（もう一度タップで解除）。<span class="blk-legend blk-res">Threease の予約</span> は変更できません。<span class="blk-legend blk-off">シフト外・休憩</span> はもともと空きに出ません。「全員」の列は、その時間帯を全スタッフまとめて塞ぎます。保存は自動です。</p>
+        <p class="churn-summary" id="blk-status"></p>
+        <div id="blk-grid" class="blk-grid-wrap"><p class="admin-help">読み込み中…</p></div>
       </section>
 
       <!-- キャンペーン管理 -->

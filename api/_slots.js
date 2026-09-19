@@ -89,9 +89,10 @@ function workingRanges(shift) {
  * @param {number} p.minutes           所要時間（分）
  * @param {number} p.unitCount         院のユニット（施術スペース）数。0 = 制限しない
  * @param {number} [p.step=30]         表示する開始時刻の刻み（分）
+ * @param {object} [p.manual]          手動ブロック { '<staffId>' | '*': ['HH:MM', …] }（各枠 step 分を埋まり扱い）
  * @returns {{ available: string[], axis: string[], detail: object }}
  */
-export function computeDay({ date, staff, shifts, reservations, productId, minutes, unitCount = 0, step = 30 }) {
+export function computeDay({ date, staff, shifts, reservations, productId, minutes, unitCount = 0, step = 30, manual = {} }) {
   const dayShifts = shifts.filter((s) => s.date === date && s.end > s.start);
   const dayRes = reservations.filter((r) => r.date === date && isActive(r));
   const staffById = new Map(staff.map((s) => [Number(s.id), s]));
@@ -130,6 +131,15 @@ export function computeDay({ date, staff, shifts, reservations, productId, minut
     const list = busyByStaff.get(r.staffId) || [];
     list.push(r);
     busyByStaff.set(r.staffId, list);
+  }
+  // 手動ブロック: 指定スタッフ（'*' は稼働中の全員）のその枠を埋まり扱いに
+  for (const [k, slots] of Object.entries(manual || {})) {
+    const targets = k === '*' ? [...work.keys()] : [Number(k)];
+    for (const id of targets) {
+      const list = busyByStaff.get(id) || [];
+      for (const s of slots || []) { const t = toMin(s); list.push({ start: t, end: t + step, manual: true }); }
+      busyByStaff.set(id, list);
+    }
   }
 
   const available = [];
