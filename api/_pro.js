@@ -119,16 +119,25 @@ const blockKeys = (clinic, rangeKey) => ({
   fail: `recovery:pro_fail:${clinic}:${rangeKey}`,
 });
 
+// 同じ関数インスタンス内で同時に同じブロックを取りに行かないよう、進行中の取得を共有する
+const inflight = (globalThis.__reserveInflight ||= new Map());
 async function refreshBlock(clinic, range, k) {
-  try {
-    const entry = await timed('courses', () => fetchBlock(clinic, range));
-    await writeCache(k.cache, entry, BLOCK_SECONDS);
-    await writeCache(k.last, entry);
-    return entry;
-  } catch (err) {
-    await writeCache(k.fail, { at: new Date().toISOString(), error: err.message }, FAIL_SECONDS);
-    throw err;
-  }
+  if (inflight.has(k.cache)) return inflight.get(k.cache);
+  const p = (async () => {
+    try {
+      const entry = await timed('courses', () => fetchBlock(clinic, range));
+      await writeCache(k.cache, entry, BLOCK_SECONDS);
+      await writeCache(k.last, entry);
+      return entry;
+    } catch (err) {
+      await writeCache(k.fail, { at: new Date().toISOString(), error: err.message }, FAIL_SECONDS);
+      throw err;
+    } finally {
+      inflight.delete(k.cache);
+    }
+  })();
+  inflight.set(k.cache, p);
+  return p;
 }
 
 /**

@@ -94,15 +94,17 @@
     if (box && st) {
       const days = Object.keys(st).sort().reverse();
       const day = days[0];
-      const c = day ? (st[day].courses || {}) : null;
-      if (!c || !c.total) {
+      const api = day ? (st[day].api || null) : null;
+      const c = day ? (st[day].courses || null) : null;
+      const apiLive = api ? (api.ok || 0) + (api.fail || 0) : 0;
+      if (!apiLive) {
         box.innerHTML = '<p class="admin-help">まだ今日の計測データがありません。</p>';
       } else {
-        const rate = c.successRate == null ? 'good' : c.successRate >= 99 ? 'good' : c.successRate >= 95 ? 'warn' : 'bad';
+        const rate = api.successRate == null ? 'good' : api.successRate >= 99 ? 'good' : api.successRate >= 95 ? 'warn' : 'bad';
+        const blockLive = c ? (c.ok || 0) + (c.fail || 0) : 0;
         box.innerHTML = `
-          <div class="home-stat"><div class="home-stat-num"><b>${c.total.toLocaleString()}</b><span>回</span></div><small>問い合わせ数（${escapeHtml(day)}）</small></div>
-          <div class="home-stat"><div class="home-stat-num ${rate}"><b>${c.successRate != null ? c.successRate : '-'}</b><span>%</span></div><small>Threease 読み込みの成功率</small></div>
-          <div class="home-stat"><div class="home-stat-num"><b>${c.cacheHitRate != null ? c.cacheHitRate : '-'}</b><span>%</span></div><small>キャッシュ率（高いほど軽い）</small></div>`;
+          <div class="home-stat"><div class="home-stat-num"><b>${apiLive.toLocaleString()}</b><span>回</span></div><small>Threease API 呼び出し（${escapeHtml(day)}）<br>うち空き状況の更新 ${blockLive} 回・保存済みで返した回数 ${c ? (c.cacheHit || 0) : 0}</small></div>
+          <div class="home-stat"><div class="home-stat-num ${rate}"><b>${api.successRate != null ? api.successRate : '-'}</b><span>%</span></div><small>成功率（失敗 ${api.fail || 0} 件・平均 ${api.avgMs != null ? api.avgMs + 'ms' : '-'}）</small></div>`;
       }
     }
   }
@@ -653,35 +655,42 @@
         return;
       }
       let html = '';
+      const live = (k) => k ? ((k.ok || 0) + (k.fail || 0)) : 0;
       for (const day of days) {
         const kinds = stats[day] || {};
-        const c = kinds.courses || { total: 0, ok: 0, fail: 0, cacheHit: 0, stale: 0, avgMs: null, successRate: null, cacheHitRate: null };
-        if (c.total === 0) continue;
-        const rateColor = c.successRate == null ? 'good'
-          : c.successRate >= 99 ? 'good' : c.successRate >= 95 ? 'warn' : 'bad';
-        const live = (c.ok || 0) + (c.fail || 0);
+        const api = kinds.api || null;
+        const c = kinds.courses || null;
+        const apiLive = live(api);
+        if (!apiLive && !live(c) && !(c && c.total)) continue;
+        const parts = [
+          ['予約', live(kinds.api_reservations)], ['お客様', live(kinds.api_customers)],
+          ['シフト', live(kinds.api_shifts)], ['その他', live(kinds.api_other)],
+        ].filter(([, n]) => n).map(([l, n]) => `${l} ${n.toLocaleString()}`).join(' ／ ');
+        const rate = api && api.successRate != null ? api.successRate : null;
+        const rateColor = rate == null ? 'good' : rate >= 99 ? 'good' : rate >= 95 ? 'warn' : 'bad';
+        const blockLive = live(c);
+        const cacheHit = c ? (c.cacheHit || 0) : 0;
         html += `<div class="stats-day">
           <div class="stats-day-head">${escapeHtml(day)}</div>
           <div class="stats-day-body">
             <div class="stats-item">
-              <div class="stats-label">問い合わせ数</div>
-              <div class="stats-value">${c.total.toLocaleString()}</div>
+              <div class="stats-label">Threease API 呼び出し <small>(実数)</small></div>
+              <div class="stats-value">${apiLive.toLocaleString()}</div>
+              <div class="stats-sub">${escapeHtml(parts || '—')}</div>
             </div>
             <div class="stats-item">
-              <div class="stats-label">上流成功率 <small>(実呼び出し ${live.toLocaleString()}件)</small></div>
-              <div class="stats-value stats-${rateColor}">${c.successRate != null ? c.successRate + '%' : '-'}</div>
+              <div class="stats-label">成功率</div>
+              <div class="stats-value stats-${rateColor}">${rate != null ? rate + '%' : '-'}</div>
+              <div class="stats-sub">失敗 ${api ? (api.fail || 0) : 0} 件</div>
             </div>
             <div class="stats-item">
-              <div class="stats-label">キャッシュ率</div>
-              <div class="stats-value">${c.cacheHitRate != null ? c.cacheHitRate + '%' : '-'}</div>
+              <div class="stats-label">空き状況の更新 <small>(Threease を読んだ回数)</small></div>
+              <div class="stats-value">${blockLive.toLocaleString()}</div>
+              <div class="stats-sub">保存済みで返した回数 ${cacheHit.toLocaleString()}</div>
             </div>
             <div class="stats-item">
-              <div class="stats-label">失敗</div>
-              <div class="stats-value">${(c.fail || 0).toLocaleString()}</div>
-            </div>
-            <div class="stats-item">
-              <div class="stats-label">平均応答 <small>(成功時)</small></div>
-              <div class="stats-value">${c.avgMs != null ? c.avgMs + 'ms' : '-'}</div>
+              <div class="stats-label">平均応答 <small>(1呼び出し)</small></div>
+              <div class="stats-value">${api && api.avgMs != null ? api.avgMs + 'ms' : '-'}</div>
             </div>
           </div>
         </div>`;

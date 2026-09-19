@@ -487,3 +487,4 @@
   font-family: inherit;
 }
 
+.stats-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; line-height: 1.5; }

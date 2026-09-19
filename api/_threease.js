@@ -4,6 +4,7 @@
 //   トークンは Redis（無ければメモリ）に保存して使い回し、401 なら再ログインする。
 //   リカバリーは2院（192 / 193）あるので、院IDは呼び出し側が /branches/{id}/... で指定する。
 import { cleanEnv, readCache, writeCache } from './_store.js';
+import { recordUpstreamCall } from './_cache-stats.js';
 
 const BASE = 'https://api.threease.com/api/v1/therapists';
 const AUTH_KEYS = ['access-token', 'token-type', 'client', 'expiry', 'uid'];
@@ -58,6 +59,14 @@ function isExpired(auth) {
   return !exp || exp * 1000 < Date.now() + 60 * 1000;
 }
 
+// 通信ログ用: Threease への実際の HTTP 呼び出しを 1 回ずつ数える（kind = api と api_<種類>）
+function apiKind(path) {
+  if (/\/reservations/.test(path)) return 'api_reservations';
+  if (/\/customers/.test(path)) return 'api_customers';
+  if (/shift/.test(path)) return 'api_shifts';
+  return 'api_other';
+}
+
 export async function apiGet(path, params, allowRelogin = true) {
   let auth = await readCache(AUTH_KEY);
   if (!auth || !auth.headers || isExpired(auth)) auth = await login();
@@ -67,7 +76,18 @@ export async function apiGet(path, params, allowRelogin = true) {
     if (Array.isArray(v)) v.forEach((x) => url.searchParams.append(k, String(x)));
     else url.searchParams.set(k, String(v));
   });
-  const res = await fetchWithTimeout(url, { headers: { ...auth.headers, accept: 'application/json' } });
+  const t0 = Date.now();
+  let res;
+  try {
+    res = await fetchWithTimeout(url, { headers: { ...auth.headers, accept: 'application/json' } });
+  } catch (e) {
+    recordUpstreamCall('api', 'fail', Date.now() - t0);
+    recordUpstreamCall(apiKind(path), 'fail', Date.now() - t0);
+    throw e;
+  }
+  const okStatus = res.status === 200 ? 'ok' : 'fail';
+  recordUpstreamCall('api', okStatus, Date.now() - t0);
+  recordUpstreamCall(apiKind(path), okStatus, Date.now() - t0);
   if (res.status === 401 && allowRelogin) {
     await login();
     return apiGet(path, params, false);

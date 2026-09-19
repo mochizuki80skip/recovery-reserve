@@ -122,7 +122,9 @@ export async function readDailyStats(daysBack = 3) {
   }
   const out = {};
   for (const day of days) {
-    const kinds = ['courses', 'calendar'];
+    // courses = 空き状況のブロック更新（1回で Threease を 2〜3 回呼ぶ）, meta = 院情報,
+    // api = Threease への実際の HTTP 呼び出し（内訳 api_reservations / api_customers / api_shifts / api_other）
+    const kinds = ['courses', 'meta', 'api', 'api_reservations', 'api_customers', 'api_shifts', 'api_other'];
     const entry = {};
     for (const kind of kinds) {
       const base = `recovery:st:${day}:${kind}`;

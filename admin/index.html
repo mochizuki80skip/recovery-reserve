@@ -495,7 +495,7 @@
       <section class="admin-section" data-section="log" hidden>
       <section class="admin-card">
         <h2>通信ログ（直近3日）</h2>
-        <p class="admin-help">「上流成功率」は Threease を実際に読みに行った回数のうち成功した割合（キャッシュ命中は除外）。「キャッシュ率」が高いほど Threease への負荷が軽く、失敗・遅延が起きにくくなります。失敗が多い時はカレンダーに「?」枠が出やすくなります。</p>
+        <p class="admin-help">「Threease API 呼び出し」は Threease に実際に送った HTTP リクエストの数です（内訳: 予約・お客様・シフト・その他）。「空き状況の更新」は Threease からシフト＋予約を読み直した回数で、「保存済みで返した回数」が多いほど Threease を読まずに済んでいます。失敗が多い時はカレンダーに「?」枠が出やすくなります。</p>
         <div id="stats-panel" class="stats-panel">
           <p class="admin-help">読み込み中…</p>
         </div>
