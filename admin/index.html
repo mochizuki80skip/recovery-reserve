@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!-- build: post-quota verification 2026-05-15 -->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="robots" content="noindex,nofollow">
+  <title>管理画面 | リカバリー鍼灸院</title>
+  <link rel="stylesheet" href="/style.css?v=20260520k">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260713b">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-text">
+        <h1>管理画面 / 限定メニュー</h1>
+        <p class="topbar-sub">Recovery Acupuncturist / Admin</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-wrap">
+
+    <!-- Login -->
+    <section class="admin-card" id="login-card">
+      <h2>🔒 ログイン</h2>
+      <p class="admin-help">管理パスワードを入力してください。</p>
+      <input type="password" id="login-pass" autocomplete="current-password" placeholder="パスワード">
+      <button class="primary" id="login-btn">ログイン</button>
+      <p class="admin-error" id="login-error" hidden></p>
+    </section>
+
+    <!-- Authenticated views -->
+    <div id="auth-view" hidden>
+      <div class="admin-layout">
+        <aside class="admin-sidebar">
+          <div class="admin-sidebar-brand">管理メニュー</div>
+          <nav class="admin-nav">
+            <button type="button" class="admin-nav-item is-active" data-section="campaigns">
+              <span class="admin-nav-icon">🎯</span>キャンペーン管理
+            </button>
+            <button type="button" class="admin-nav-item" data-section="stats">
+              <span class="admin-nav-icon">📊</span>通信ログ
+            </button>
+            <a class="admin-nav-item" href="/manual.html" target="_blank" rel="noopener">
+              <span class="admin-nav-icon">📖</span>運用マニュアル
+              <span class="admin-nav-ext" aria-hidden="true">↗</span>
+            </a>
+          </nav>
+          <div class="admin-sidebar-footer">
+            <button class="admin-logout" id="logout-btn">ログアウト</button>
+          </div>
+        </aside>
+
+        <div class="admin-main">
+
+      <section class="admin-section" data-section="stats" hidden>
+      <section class="admin-card">
+        <h2>📊 通信ログ（直近3日）</h2>
+        <p class="admin-help">「上流成功率」は threease を実際に叩いた呼び出しの成功割合（キャッシュ命中は除外）。「キャッシュ率」が高いほど threease への負荷が軽く、失敗・遅延が起きにくくなります。失敗が多い時はカレンダーに「?」枠が出やすくなります。</p>
+        <div id="stats-panel" class="stats-panel">
+          <p class="admin-help">読み込み中…</p>
+        </div>
+      </section>
+      </section>
+
+      <section class="admin-section" data-section="campaigns">
+      <div class="admin-2col">
+
+      <section class="admin-card">
+        <h2>新規キャンペーン追加</h2>
+        <p class="admin-help">URLコードに含めるキーワードと、表示するメニュー内容を入力してください。<br>
+          <code class="admin-code">https://〇〇.vercel.app/?promo=<strong>URLコード</strong></code>
+          で限定メニューが表示されます。
+        </p>
+
+        <form class="admin-form" id="promo-form">
+          <label>
+            <span>URLコード <small>(英数字・ハイフン・アンダーバー、3〜40文字)</small></span>
+            <div class="admin-input-row">
+              <input type="text" name="code" id="f-code" required pattern="[a-zA-Z0-9_-]{3,40}" placeholder="例: chirashi-spring2026">
+              <button type="button" id="f-code-rand" class="admin-btn-mini">ランダム生成</button>
+            </div>
+          </label>
+
+          <fieldset class="admin-fieldset">
+            <legend>キャンペーン種別</legend>
+            <label class="admin-radio">
+              <input type="radio" name="kind" value="override" id="f-kind-override" checked>
+              <span>既存メニューの<strong>価格を変更</strong>（おすすめ）</span>
+            </label>
+            <label class="admin-radio">
+              <input type="radio" name="kind" value="shortcut" id="f-kind-shortcut">
+              <span>既存メニューの<strong>空き状況を表示</strong>（カレンダーへ直行）</span>
+            </label>
+            <label class="admin-radio">
+              <input type="radio" name="kind" value="addon" id="f-kind-addon">
+              <span>新しいメニューを<strong>追加</strong>（独自の限定メニュー）</span>
+            </label>
+          </fieldset>
+
+          <div class="admin-form-row">
+            <label>
+              <span>対象院</span>
+              <select name="forClinic" id="f-forClinic">
+                <option value="both">両院</option>
+                <option value="192">長泉三島院のみ</option>
+                <option value="193">裾野長泉院のみ</option>
+              </select>
+            </label>
+            <label>
+              <span>対象来院</span>
+              <select name="forFirstTime" id="f-forFirstTime">
+                <option value="both">両方</option>
+                <option value="true">初回のみ</option>
+                <option value="false">2回目以降のみ</option>
+                <option value="three_months">3ヶ月以上来院なしのみ</option>
+              </select>
+            </label>
+          </div>
+
+          <label id="f-target-wrap">
+            <span>対象既存メニュー <small>(院・来院を選ぶと候補が出ます)</small></span>
+            <select name="targetCourseId" id="f-targetCourseId">
+              <option value="">— 選択してください —</option>
+            </select>
+            <p class="admin-help" id="f-target-help"></p>
+          </label>
+
+          <label id="f-name-wrap">
+            <span id="f-name-label">表示名 <small>(任意・空欄なら元のコース名を使用)</small></span>
+            <input type="text" name="name" id="f-name" placeholder="例: 【春チラシ限定】鍼灸お試し">
+          </label>
+
+          <label id="f-description-wrap">
+            <span id="f-description-label">説明 <small>(任意)</small></span>
+            <textarea name="description" id="f-description" rows="3" placeholder="チラシをご持参の方限定..."></textarea>
+          </label>
+
+          <label id="f-price-wrap">
+            <span>価格 (円) <small>(キャンペーン価格・1円単位)</small></span>
+            <input type="number" name="price" id="f-price" min="0" step="1" placeholder="2980">
+          </label>
+
+          <label class="admin-checkbox" id="f-keeporiginal-wrap" hidden>
+            <input type="checkbox" name="keepOriginalMenu" id="f-keepOriginalMenu">
+            <span>通常メニューも一緒に表示する <small>(紹介者がいない方も元の価格で選べます)</small></span>
+          </label>
+
+          <p class="admin-help" id="f-shortcut-help" hidden>
+            「空き状況を表示」モードでは、対象の既存メニューにそのまま誘導します。<br>
+            価格や説明は変更しません（元のコースをそのまま表示）。<br>
+            URLを開くとカレンダーまで自動進行します。
+          </p>
+
+          <fieldset class="admin-fieldset" id="f-autoopen-wrap">
+            <legend>URLを開いた時の挙動</legend>
+            <label class="admin-checkbox">
+              <input type="checkbox" name="autoOpen" id="f-autoOpen">
+              <span>URLをタップしたら、<strong>指定済みの項目を自動入力</strong>する</span>
+            </label>
+            <label id="f-autoopenlevel-wrap" hidden>
+              <span>自動で進める範囲</span>
+              <select name="autoOpenLevel" id="f-autoOpenLevel">
+                <option value="course">コースまで自動（カレンダーへ直行）</option>
+                <option value="visit">来院まで自動（コースはお客様が選択）</option>
+                <option value="clinic">院だけ自動（来院から選択）</option>
+              </select>
+            </label>
+            <p class="admin-help">
+              ON にすると、上で指定した「対象院」「対象来院」「対象既存メニュー」のうち
+              <strong>具体的に絞られているもの</strong>が自動で選択された状態でページが開きます。<br>
+              「自動で進める範囲」で、どこまで自動で進めるか調整できます。<br>
+              （例：通常メニューも一緒に出す紹介キャンペーンなら「来院まで自動」を選ぶと、
+              お客様が通常／紹介者割を選べます。）
+            </p>
+          </fieldset>
+
+          <fieldset class="admin-fieldset" id="f-newline-wrap">
+            <legend>予約の送信先LINE</legend>
+            <label class="admin-checkbox">
+              <input type="checkbox" name="useNewCustomerLine" id="f-useNewCustomerLine">
+              <span>このURL経由の<strong>初回予約</strong>を新規集客用LINE（@844cczgm）に送信する</span>
+            </label>
+            <p class="admin-help">
+              OFF（通常）はこれまで通り各院の公式LINEに送信されます。<br>
+              ON にすると、このキャンペーンURLから来た<strong>初回</strong>のお客様の予約だけが
+              新規集客用アカウントに届きます（2回目以降・3ヶ月ぶりは各院のLINEのまま）。
+            </p>
+          </fieldset>
+
+          <fieldset class="admin-fieldset" id="f-customfield-wrap">
+            <legend>予約時の記入欄（任意）</legend>
+            <label>
+              <span>記入欄のラベル <small>(空欄なら表示しない・例: 紹介者のお名前)</small></span>
+              <input type="text" name="customFieldLabel" id="f-cf-label" maxlength="60" placeholder="例: 紹介者のお名前">
+            </label>
+            <label class="admin-checkbox">
+              <input type="checkbox" name="customFieldRequired" id="f-cf-required">
+              <span>この記入欄を<strong>必須</strong>にする</span>
+            </label>
+            <label>
+              <span>入力例（プレースホルダ） <small>(任意)</small></span>
+              <input type="text" name="customFieldPlaceholder" id="f-cf-placeholder" maxlength="60" placeholder="例: 山田 太郎">
+            </label>
+            <p class="admin-help">
+              予約確認画面で、お客様にこの項目を記入してもらえます。<br>
+              記入内容は LINE の予約文面に自動で追加されます。<br>
+              （例：紹介イベントで「紹介者のお名前」を必須にする）
+            </p>
+          </fieldset>
+
+          <button class="primary" type="submit">追加 / 更新</button>
+          <p class="admin-info" id="form-info" hidden></p>
+          <p class="admin-error" id="form-error" hidden></p>
+        </form>
+      </section>
+
+      <section class="admin-card">
+        <h2>現在のキャンペーン</h2>
+        <p class="admin-help">同じURLコードを再追加すると上書きされます。</p>
+
+        <div class="promo-filters" id="promo-filters" hidden>
+          <div class="promo-filter-tabs" role="tablist">
+            <button type="button" class="promo-tab is-active" data-kind="all">
+              すべて <span class="promo-tab-count" data-count="all">0</span>
+            </button>
+            <button type="button" class="promo-tab" data-kind="override">
+              <span class="promo-tab-dot promo-tab-dot--override"></span>価格上書き
+              <span class="promo-tab-count" data-count="override">0</span>
+            </button>
+            <button type="button" class="promo-tab" data-kind="shortcut">
+              <span class="promo-tab-dot promo-tab-dot--shortcut"></span>空き状況へ直行
+              <span class="promo-tab-count" data-count="shortcut">0</span>
+            </button>
+            <button type="button" class="promo-tab" data-kind="addon">
+              <span class="promo-tab-dot promo-tab-dot--addon"></span>新メニュー
+              <span class="promo-tab-count" data-count="addon">0</span>
+            </button>
+          </div>
+          <div class="promo-filter-row">
+            <input type="search" id="promo-search" placeholder="🔍 コード・名前・コースで検索" autocomplete="off">
+            <select id="promo-clinic-filter" aria-label="院フィルタ">
+              <option value="all">全院</option>
+              <option value="192">三島院のみ</option>
+              <option value="193">裾野院のみ</option>
+              <option value="both">両院対象</option>
+            </select>
+          </div>
+          <p class="promo-filter-empty" id="promo-filter-empty" hidden>
+            条件に一致するキャンペーンはありません。
+          </p>
+        </div>
+
+        <div id="promo-list" class="promo-list">
+          <p class="admin-help">読み込み中…</p>
+        </div>
+      </section>
+
+      </div> <!-- /.admin-2col -->
+      </section> <!-- /.admin-section campaigns -->
+
+        </div> <!-- /.admin-main -->
+      </div> <!-- /.admin-layout -->
+    </div>
+
+  </main>
+
+  <script src="/admin/admin.js?v=20260713b"></script>
+</body>
+</html>

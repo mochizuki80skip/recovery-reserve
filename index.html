@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="description" content="リカバリー鍼灸院（長泉三島院・裾野長泉院）の空き状況。コースを選んで気になる時間をタップ、公式LINEで予約できます。">
+  <meta property="og:title" content="リカバリー鍼灸院 空き状況">
+  <meta property="og:description" content="長泉三島院・裾野長泉院の空き状況。コースを選んで気になる時間をタップ、公式LINEへ。">
+  <meta property="og:type" content="website">
+  <title>リカバリー鍼灸院 空き状況</title>
+  <link rel="stylesheet" href="style.css?v=20260520m">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <img class="logo" src="logo.jpg" alt="" onerror="this.style.display='none'">
+      <div class="topbar-text">
+        <h1>リカバリー鍼灸院</h1>
+        <p class="topbar-sub">Recovery Acupuncturist / 空き状況</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="院切替">
+    <button class="tab is-active" data-clinic="192" role="tab" aria-selected="true">長泉三島院</button>
+    <button class="tab" data-clinic="193" role="tab" aria-selected="false">裾野長泉院</button>
+  </nav>
+
+  <main class="wizard">
+
+    <!-- STEP 1 ---------------------------------------------- -->
+    <section class="step" data-step="1" data-state="active" id="step-1">
+      <header class="step-head">
+        <span class="step-num">1</span>
+        <h2>ご来院パターン</h2>
+        <span class="step-sum" id="sum-1"></span>
+        <button class="step-edit" data-edit="1" hidden>変更</button>
+      </header>
+      <div class="step-body">
+        <div class="choice-grid stack">
+          <button class="choice" data-visit="first">
+            <span class="choice-title">初回</span>
+            <span class="choice-sub">はじめて来院される方</span>
+          </button>
+          <button class="choice" data-visit="returning">
+            <span class="choice-title">2回目以降</span>
+            <span class="choice-sub">来院されたことがある方</span>
+          </button>
+          <button class="choice" data-visit="three_months">
+            <span class="choice-title">3ヶ月以上来院なし</span>
+            <span class="choice-sub">前回から3ヶ月以上空いた方</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2 ---------------------------------------------- -->
+    <section class="step" data-step="2" data-state="locked" id="step-2">
+      <header class="step-head">
+        <span class="step-num">2</span>
+        <h2>コースを選択</h2>
+        <span class="step-sum" id="sum-2"></span>
+        <button class="step-edit" data-edit="2" hidden>変更</button>
+      </header>
+      <div class="step-body">
+        <div class="step-locked-msg">前のステップを完了してください</div>
+        <div class="status" id="courses-loading" hidden>コース読み込み中…</div>
+        <div class="status status-error" id="courses-error" hidden></div>
+        <div class="choice-grid one" id="course-list"></div>
+      </div>
+    </section>
+
+    <!-- STEP 3 ---------------------------------------------- -->
+    <section class="step" data-step="3" data-state="locked" id="step-3">
+      <header class="step-head">
+        <span class="step-num">3</span>
+        <h2>日時を選ぶ</h2>
+        <span class="step-sum" id="sum-3"></span>
+        <button class="step-edit" data-edit="3" hidden>変更</button>
+      </header>
+      <div class="step-body">
+        <div class="step-locked-msg">前のステップを完了してください</div>
+
+        <div class="step3-pin" id="step3-pin" hidden>
+          <div class="pin-course" id="pin-course">—</div>
+          <ul class="pin-picks" id="pin-picks"></ul>
+        </div>
+
+        <div class="weeknav">
+          <button class="weeknav-btn" id="prev-week" aria-label="前の週">‹</button>
+          <span class="weeknav-label" id="week-label">—</span>
+          <button class="weeknav-btn" id="next-week" aria-label="次の週">›</button>
+        </div>
+
+        <div class="legend" aria-hidden="true">
+          <span class="legend-item"><span class="legend-mark mark-avail">〇</span>予約可</span>
+          <span class="legend-item"><span class="legend-mark mark-none">―</span>満員 / 受付外</span>
+          <span class="legend-item"><span class="legend-mark mark-unknown">?</span>タップで再取得</span>
+          <span class="legend-item"><span class="legend-mark mark-phone"><svg class="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>予約可（お電話で）</span>
+        </div>
+        <p class="multi-hint">第1〜第3希望まで選択できます（任意）。同じ枠を再タップで取消。</p>
+
+        <div class="status" id="grid-loading" hidden>
+          <span class="grid-loading-text">空き状況を取得中… <span id="grid-loading-pct">0%</span></span>
+          <div class="grid-progress" aria-hidden="true">
+            <div class="grid-progress-bar" id="grid-progress-bar" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="status status-error" id="grid-error" hidden></div>
+        <div class="status" id="grid-empty" hidden>選択中のコースは、この週は空きがありません</div>
+        <div id="grid" class="grid-wrap"></div>
+
+        <p class="updated" id="updated"></p>
+      </div>
+    </section>
+
+    <!-- STEP 4 ---------------------------------------------- -->
+    <section class="step" data-step="4" data-state="locked" id="step-4">
+      <header class="step-head">
+        <span class="step-num">4</span>
+        <h2>予約内容の確認</h2>
+      </header>
+      <div class="step-body">
+        <div class="step-locked-msg">前のステップを完了してください</div>
+
+        <div class="confirm-card">
+          <div class="confirm-head">
+            <img class="confirm-photo" id="confirm-photo" alt="" loading="lazy" onerror="this.style.display='none'">
+            <div class="confirm-head-text">
+              <div class="confirm-clinic-name" id="m-clinic">—</div>
+              <div class="confirm-clinic-address" id="m-address"></div>
+            </div>
+          </div>
+          <dl class="summary">
+            <dt>来院</dt><dd id="m-firsttime">—</dd>
+            <dt>コース</dt><dd id="m-course">—</dd>
+            <dt>日時</dt><dd id="m-datetime">—</dd>
+          </dl>
+        </div>
+
+        <label class="firsttime-name" id="firsttime-name-wrap" hidden>
+          <span class="firsttime-name-label">お名前 <small>(初診の方は必須)</small></span>
+          <input type="text" id="m-name" placeholder="例: 山田 太郎" autocomplete="name">
+        </label>
+
+        <label class="custom-field" id="custom-field-wrap" hidden>
+          <span class="custom-field-label" id="custom-field-label"></span>
+          <input type="text" id="custom-field-input" autocomplete="off">
+        </label>
+
+        <label class="notes-field">
+          <span class="notes-field-label">備考 <small>(任意)</small></span>
+          <textarea id="m-notes" rows="3" placeholder="ご要望やご質問などあればこちらに（任意）"></textarea>
+        </label>
+
+        <!-- Method: LINE -->
+        <div class="book-method book-method--line">
+          <div class="book-method-head">
+            <h3>公式LINEで予約</h3>
+          </div>
+          <p class="book-method-desc">下の文面をコピーしてLINEで送信。当院から折返しで予約確定のご連絡をします。</p>
+          <textarea id="m-text" rows="7" readonly></textarea>
+          <button class="primary primary-line" id="copy-and-go">
+            コピーして公式LINEを開く
+          </button>
+          <p class="book-tiny">タップすると LINE のチャットに文面が自動入力されます。あとは <strong>送信ボタンを押すだけ</strong> です（うまく入っていない場合は、入力欄を長押し → 貼り付けでもOK）。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 直前枠（30分以内）専用：お電話のご案内パネル -->
+    <section class="phone-help" id="phone-help" hidden>
+      <h2 class="phone-help-title">
+        <svg class="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        直前のご予約はお電話で
+      </h2>
+      <p class="phone-help-msg">
+        施術開始まで <strong>30分</strong> を切っているお時間は、LINE での
+        ご返信が間に合わない可能性があります。直接お電話でのご連絡をお願いします。
+      </p>
+      <div class="phone-help-card">
+        <div class="phone-help-clinic" id="phone-help-clinic">—</div>
+        <a class="phone-help-link" id="phone-help-link" href="#" hidden>
+          <svg class="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          <span class="phone-help-number" id="phone-help-number"></span>
+        </a>
+        <p class="phone-help-fallback" id="phone-help-fallback" hidden>
+          お電話番号は院にお問合せください。
+        </p>
+      </div>
+    </section>
+
+    <p class="disclaimer">
+      ※ 表示は当院の予約システムから数分単位で取得しています。実際の予約状況は LINE 受付時に最終確認させていただきます。
+    </p>
+
+  </main>
+
+  <footer class="footer">
+    <small>リカバリー鍼灸院</small>
+  </footer>
+
+  <script src="app.js?v=20260713a"></script>
+</body>
+</html>

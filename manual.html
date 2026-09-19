@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>運用マニュアル | リカバリー鍼灸院 予約サイト</title>
+  <style>
+    :root {
+      --bg: #faf7f0;
+      --surface: #ffffff;
+      --ink: #1a1a1a;
+      --ink-soft: #555;
+      --ink-faint: #999;
+      --line: #e8e1d0;
+      --gold: #bfa572;
+      --gold-deep: #9c8753;
+      --gold-bg: #faf3e2;
+      --code-bg: #f6efde;
+      --red: #c2342a;
+      --green: #58a06d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                   "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.7;
+      margin: 0;
+      padding: 0 16px 80px;
+      font-size: 15px;
+    }
+    .wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      padding-top: 32px;
+    }
+    .doc-head {
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 16px;
+      margin-bottom: 28px;
+    }
+    .doc-head h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.04em;
+    }
+    .doc-head .sub {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--ink-soft);
+    }
+    h2 {
+      font-size: 18px;
+      margin: 36px 0 12px;
+      padding: 8px 12px;
+      background: var(--ink);
+      color: #fff;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+    }
+    h3 {
+      font-size: 15px;
+      margin: 24px 0 8px;
+      padding-left: 10px;
+      border-left: 4px solid var(--gold-deep);
+      font-weight: 700;
+    }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0; padding-left: 22px; }
+    li { margin: 4px 0; }
+    code {
+      background: var(--code-bg);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 13px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+      font-size: 14px;
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--gold-bg);
+      font-weight: 700;
+    }
+    .note {
+      background: var(--gold-bg);
+      border-left: 4px solid var(--gold-deep);
+      padding: 10px 14px;
+      margin: 12px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .warn {
+      background: #fbeeec;
+      border-left: 4px solid var(--red);
+      padding: 10px 14px;
+      margin: 12px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .case-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 14px 0;
+    }
+    .case-card h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #fff;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .badge-customer { background: var(--green); }
+    .badge-staff { background: #4a6fa5; }
+    nav.toc {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 20px;
+      margin-bottom: 28px;
+      font-size: 14px;
+    }
+    nav.toc h2 {
+      background: none;
+      color: var(--ink);
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+    nav.toc ol { padding-left: 22px; margin: 4px 0; }
+    nav.toc a { color: var(--gold-deep); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    .print-btn {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: var(--ink);
+      color: #fff;
+      border: 0;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    }
+    @media print {
+      .print-btn, nav.toc { display: none; }
+      body { background: white; padding: 0; }
+      h2 { background: none; color: black; border-bottom: 2px solid black; border-radius: 0; }
+      .case-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="doc-head">
+      <h1>リカバリー鍼灸院 予約サイト — 運用マニュアル</h1>
+      <p class="sub">最終更新: 2026-05 / リリース版</p>
+    </header>
+
+    <nav class="toc">
+      <h2>目次</h2>
+      <ol>
+        <li><a href="#sec-0">問題報告時の確認順序</a></li>
+        <li><a href="#sec-a">お客様側で起こりうる問題（8件）</a></li>
+        <li><a href="#sec-b">スタッフ側で起こりうる問題（9件）</a></li>
+        <li><a href="#sec-c">開発側へのエスカレーション</a></li>
+        <li><a href="#sec-d">定期チェック（推奨）</a></li>
+        <li><a href="#sec-e">用語集</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="sec-0">0. 問題報告が来たら最初に確認すること</h2>
+    <ol>
+      <li><strong>本番 URL</strong> で起きているか確認<br>
+        <code>https://mochizuki-bn3q.vercel.app/</code><br>
+        プレビュー URL（途中にハイフンと記号が混ざるURL）は実験版なので、本番と挙動が違うことがあります。
+      </li>
+      <li><strong>どの院・どの来院パターン・どのコース・何月何日何時</strong>かを聞き取る<br>
+        特定できると原因切り分けが速くなります。
+      </li>
+      <li><strong>いつから起きているか</strong>を確認<br>
+        「今朝から」「予約後から」など。</li>
+      <li><strong>threease（スリーズプロ）側はどうか</strong><br>
+        <code>https://reservation.threease.com/192</code> を直接開き、同じ条件で同じ症状が出るかを比較。
+        <ul>
+          <li>threease でも同じ → threease の問題</li>
+          <li>threease は正常 → 当アプリの問題（開発側へ）</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h2 id="sec-a">A. お客様側で起こりうる問題</h2>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-1. カレンダーで「?」と表示される</h4>
+      <p><strong>意味：</strong>「予約不可」ではなく「**未確認**」の状態。当アプリから threease への問い合わせが一時的に失敗した枠です。</p>
+      <p><strong>対処：</strong><strong>「?」マークをそのままタップ</strong>すると、その枠だけキャッシュを通さず再取得します。成功すれば ○ または ─ に変わります。</p>
+      <p><strong>再失敗：</strong>もう一度タップ → 何度でも再試行できます。3 回連続失敗するなら A-3 へ。</p>
+      <div class="note">なぜ「?」になるか：誤って ○ で表示して「LINE 折り返しで取れません」を防ぐための安全側仕様です。</div>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-2. アプリで ○ だったが LINE 確認で予約できなかった</h4>
+      <p><strong>原因：</strong>カレンダー表示から LINE 送信までの数分間に他の方が同じ枠を取った（最大 60 秒のキャッシュラグ）。</p>
+      <p><strong>対処：</strong>お詫びの上、別枠を提案。第2・第3希望を入れてもらっておくと回避しやすい。</p>
+      <p><strong>頻発する場合：</strong>キャッシュをさらに短くする調整が可能なので開発側に連絡。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-3. カレンダー全体が読み込めない</h4>
+      <p><strong>症状：</strong>「空き状況を取得できませんでした」と赤いエラーが表示。</p>
+      <p><strong>対処順：</strong></p>
+      <ol>
+        <li>画面の<strong>「再読み込み」ボタン</strong>を押す</li>
+        <li>数十秒待ってもう一度</li>
+        <li>ブラウザを完全に閉じて開き直す</li>
+        <li>それでもダメならスタッフへ</li>
+      </ol>
+      <p><strong>スタッフの対応：</strong></p>
+      <ol>
+        <li>threease の予約サイトを開いて threease 自体が落ちていないか確認</li>
+        <li>Vercel のダッシュボード → Deployments が Ready か確認</li>
+        <li><code>/admin</code> の <strong>📊 通信ログ</strong> で失敗率を確認</li>
+        <li>threease ・ Vercel 両方正常なのに失敗率 50% 超 → 開発側へ連絡</li>
+      </ol>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-4. ロード中の進捗バーが途中で止まる</h4>
+      <p><strong>原因：</strong>一部の通信が極端に遅い／タイムアウト。</p>
+      <p><strong>対処：</strong>30 秒経っても完了しなければ、画面を引っ張って更新（or ブラウザ更新）。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-5. LINE が開かない・文面が入っていない</h4>
+      <ul>
+        <li>LINE アプリが未インストール／古いバージョン</li>
+        <li>当院公式 LINE を友だち追加していない</li>
+      </ul>
+      <p><strong>対処：</strong>クリップボードに文面はコピー済み。LINE で当院を検索→友だち追加→トーク欄を長押し→ペースト→送信、をご案内。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-6. 「3ヶ月以上来院なし」のコースが見当たらない</h4>
+      <p><strong>スタッフ確認：</strong>threease 管理画面 → メニュー一覧で「3ヶ月ご来院の無い方はこちら」「初診：オールインワン施術」が公開状態か。非公開だと当アプリにも表示されません。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-7. キャンペーン URL を開いたのに反応しない</h4>
+      <ol>
+        <li>URL のコード（<code>?promo=</code> の後ろ）が正しいか</li>
+        <li>管理画面の「現在のキャンペーン」に該当コードが存在するか</li>
+        <li>存在するなら設定の見直し（A-8 / B-3 参照）</li>
+      </ol>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-customer">お客様</span>A-8. キャンペーンが思った通りに動かない</h4>
+      <p>→ <a href="#case-b3">B-3</a> を参照。</p>
+    </div>
+
+    <h2 id="sec-b">B. スタッフ側で起こりうる問題</h2>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-1. 管理画面 (/admin) にログインできない</h4>
+      <ol>
+        <li>パスワードの打ち間違い（半角全角・大小文字）</li>
+        <li>ブラウザのキャッシュをクリア</li>
+        <li>何度も失敗するなら開発側に連絡（パスワードリセット可）</li>
+      </ol>
+      <div class="warn">パスワードはチャットなどデジタルで共有しない。口頭・印刷物で管理。</div>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-2. 管理画面で「現在のキャンペーン」が読み込み中のまま</h4>
+      <ol>
+        <li>F12 で開発者ツール → Console を確認</li>
+        <li>Network タブで <code>/api/admin/promos</code> のレスポンスを確認</li>
+        <li>401 → 再ログイン</li>
+        <li>500 → Upstash Redis 接続切れの可能性。開発側へ連絡</li>
+      </ol>
+    </div>
+
+    <div class="case-card" id="case-b3">
+      <h4><span class="badge badge-staff">スタッフ</span>B-3. 新規キャンペーンが期待通りに動かない</h4>
+      <table>
+        <thead><tr><th>期待</th><th>実際</th><th>確認ポイント</th></tr></thead>
+        <tbody>
+          <tr><td>カレンダーへ直行したい</td><td>来院パターン選択画面が出る</td><td>「URL を開いた時の挙動 → 指定済みの項目を自動入力」が ON か</td></tr>
+          <tr><td>価格を上書きしたい</td><td>元の価格のまま</td><td>種別が「価格を変更」+ 対象既存メニュー + 価格 が揃っているか</td></tr>
+          <tr><td>特定の院のみ</td><td>両院で出る</td><td>「対象院」が「両院」になっていないか</td></tr>
+          <tr><td>初回のみ表示</td><td>2回目以降にも出る</td><td>「対象来院」が「両方」になっていないか</td></tr>
+        </tbody>
+      </table>
+      <p>キャンペーン一覧では「価格上書き／空き状況へ直行／新メニュー」のバッジと、対象院・来院・自動進行のタグが見えるので、まずはタグで設定意図を確認してください。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-4. キャンペーン一覧から目的の URL が見つからない</h4>
+      <ol>
+        <li><strong>種別タブ</strong>（価格上書き／空き状況へ直行／新メニュー）で絞る</li>
+        <li><strong>検索ボックス</strong>でコード・名前・コース名を検索</li>
+        <li><strong>院フィルタ</strong>で三島／裾野に絞る</li>
+      </ol>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-5. 通信ログの「成功率」が下がっている</h4>
+      <p><strong>意味：</strong>threease への問い合わせが頻繁に失敗。お客様画面で「?」が出やすくなっている状態。</p>
+      <p><strong>考えられる原因：</strong></p>
+      <ul>
+        <li>threease 側の負荷増／一時不調</li>
+        <li>アクセス集中（チラシ配布直後など）</li>
+        <li>Vercel ↔ Upstash の通信不調</li>
+      </ul>
+      <p><strong>対処：</strong>30 分〜1 時間で自然回復するケースが多い。長引くなら開発側へ。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-6. 院情報（住所・写真・LINE）が変わった／院が増えた</h4>
+      <p>コード変更が必要なので、以下を開発側に伝達：</p>
+      <ul>
+        <li>新住所（〒+市町村+番地）</li>
+        <li>院外観写真 JPG</li>
+        <li>LINE のベーシック ID（<code>@xxxxx</code>）</li>
+        <li>threease のプロバイダ ID（数字）</li>
+      </ul>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-7. threease 側でコース名を変更したのに反映されない</h4>
+      <p>当アプリは最長 10 分のコース一覧キャッシュ。10 分待っても変わらないなら開発側へ。</p>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-8. デプロイが反映されない</h4>
+      <ol>
+        <li>Vercel → Deployments で最新コミットが Ready か確認</li>
+        <li>Failed / Building が続く → Hobby プランの 1日 100 デプロイ上限の可能性</li>
+        <li>Ready なのに見えない → Ctrl+Shift+R でハードリロード</li>
+      </ol>
+    </div>
+
+    <div class="case-card">
+      <h4><span class="badge badge-staff">スタッフ</span>B-9. ロゴ／院写真が表示されない</h4>
+      <p>GitHub の <code>reserve/img/</code> 配下に画像が存在するか、ファイル名が <code>clinic-mishima.jpg</code> / <code>clinic-susono.jpg</code> / <code>reserve/logo.jpg</code> になっているか確認。</p>
+    </div>
+
+    <h2 id="sec-c">C. 開発側へエスカレーションするときに伝える情報</h2>
+    <ol>
+      <li>発生時刻（できれば分単位）</li>
+      <li>対象（院・来院パターン・コース・日時）</li>
+      <li>症状のスクリーンショット</li>
+      <li>ブラウザの開発者ツール → Console タブの赤いエラー文字</li>
+      <li>直近の設定変更（キャンペーン追加、threease 側のメニュー変更など）</li>
+    </ol>
+
+    <h2 id="sec-d">D. 定期チェック（推奨）</h2>
+    <table>
+      <thead><tr><th>頻度</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>毎朝</td><td>管理画面トップで通信ログの成功率を確認（99% 以上なら正常）</td></tr>
+        <tr><td>週1回</td><td>公式 URL を実際に操作し、予約フローが通せるか確認</td></tr>
+        <tr><td>月1回</td><td>キャンペーン一覧を見て、不要なキャンペーンを削除</td></tr>
+        <tr><td>設定変更時</td><td>本番 URL で実際にテストして期待通りに動くか確認</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="sec-e">E. 用語集</h2>
+    <table>
+      <thead><tr><th>用語</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>threease（スリーズプロ）</td><td>当院が使う予約管理 SaaS。本予約はここに入る</td></tr>
+        <tr><td>公式LINE</td><td>お客様が予約希望を送る LINE 公式アカウント（院ごとに別）</td></tr>
+        <tr><td>ベーシック ID</td><td>LINE 公式アカウントの <code>@xxx</code> 形式の ID</td></tr>
+        <tr><td>プロバイダ ID</td><td>threease 内の院 ID（三島=192 / 裾野=193）</td></tr>
+        <tr><td>Vercel</td><td>このアプリのホスティング先</td></tr>
+        <tr><td>Upstash Redis</td><td>キャンペーン設定の保存先（KV ストア）</td></tr>
+        <tr><td>キャッシュ</td><td>過去の取得結果を一定時間使い回す仕組み。早いが古い情報を返すことがある</td></tr>
+      </tbody>
+    </table>
+
+  </div>
+
+  <button class="print-btn" onclick="window.print()">🖨 PDF / 印刷</button>
+</body>
+</html>
