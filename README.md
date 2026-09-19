@@ -78,13 +78,24 @@ Threease Pro API（api.threease.com/api/v1/therapists）
 | `THREEASE_PASSWORD` | パスワード |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis（無ければメモリキャッシュ。本番では設定推奨） |
 | `ADMIN_PASSWORD` | 管理画面のパスワード |
+| `CRON_SECRET` | （任意）毎朝の離反リスト作成 cron の認証。設定すると Vercel が自動で付ける |
 
 ローカルでは `.env.local` に書く（`dev-server.mjs` が読み込む）。Vercel では Settings → Environment Variables に設定。
 
 ## 管理画面（`/admin`）
 
-ミツカルの「マルミ」と同じ構成。PC は左に固定メニュー（ホーム／キャンペーン／システム）、スマホは横スクロールのピル型タブ。
-機能は従来どおり **キャンペーン管理**（限定メニュー・専用URL）と **通信ログ** で、**ホーム** にキャンペーンの件数・最近の更新・通信状況をまとめて表示する。
+ミツカルの「マルミ」と同じ構成。PC は左に固定メニュー（ホーム／毎日の運用／キャンペーン／システム）、スマホは横スクロールのピル型タブ。
+**離反リスト**、**キャンペーン管理**（限定メニュー・専用URL）、**通信ログ** があり、**ホーム** に離反リストの人数・キャンペーンの件数・通信状況をまとめて表示する。
+
+### 離反リスト（`api/_churn.js`）
+
+最終来院から **60 日以上 120 日以内** で、その後の来院も次回予約も無いお客様を院ごとに一覧にし、連絡文面を作ってコピーできる。
+
+- 求め方: Threease の「120 日前〜60 日前」の予約を読んで候補者（その期間に来院した人）を出し、候補者の ID をまとめて渡して「60 日前より後〜180 日先」に予約がある人を外す。お客様一覧 API は全件で 15〜40 秒かかり、期間の絞り込みも効かないため使わない。お客様一覧の `last_visit`/`next_visit` と突き合わせて 73/75 人が一致（差は他院の記録など）
+- 所要時間: 三島院 約 30 秒・裾野院 約 45 秒（Threease は返す予約 1 件あたり約 15ms、並列にしても速くならない）。`vercel.json` で `maxDuration` を 300 秒に設定
+- キャッシュ: Redis `recovery:churn:{clinic}` に 12 時間。**毎朝 9:00 / 9:10 JST の cron**（`api/cron-churn.js`、`CRON_SECRET` があれば検証）で両院分を作り直す。管理画面は基本キャッシュを表示し、「Threease から読み直す」で作り直す
+- 文面テンプレート: `api/admin/settings.js`（Redis `recovery:settings`、ローカルは `.local-settings.json`）。差し込み `{name}{last}{elapsed}{count}{clinic}{phone}{url}`。初期文面は `admin/admin.js` の `DEFAULT_TEMPLATES`
+- 検算: `node scripts/verify-churn.mjs 192`
 
 - `admin/index.html` 骨組み、`admin/admin-layout.css` レイアウト、`admin/admin.css` 部品、`admin/admin.js` 動作
 - 開いていたメニューは `sessionStorage` に覚える（再読み込みしても同じページ）

@@ -12,15 +12,21 @@
     refreshTargetCourseOptions();
     bindPromoFilters();
     bindAdminNav();
+    bindChurnUiOnce();
     showSection(sessionStorage.getItem(SECTION_KEY) || 'home');
     loadPromos();
     loadStats();
+    loadTemplates();
+    loadChurnCachedForHome();
   }
+  let _churnBound = false;
+  function bindChurnUiOnce() { if (_churnBound) return; _churnBound = true; bindChurnUi(); }
 
   // ---- メニュー（左メニュー / スマホはピル型タブ）----
   const SECTION_KEY = 'recovery-admin-section';
   const SECTIONS = {
-    home: { title: 'ホーム', help: 'キャンペーンの状況と Threease との通信状況をまとめて確認できます。' },
+    home: { title: 'ホーム', help: '離反リスト・キャンペーン・Threease との通信状況をまとめて確認できます。' },
+    churn: { title: '離反リスト', help: '最終来院から60日以上あいていて次回予約が無いお客様。連絡する文面をその場で作れます。' },
     campaigns: { title: 'キャンペーン管理', help: 'チラシや紹介用の限定メニューを登録し、専用URL（?promo=コード）を発行します。' },
     stats: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
   };
@@ -33,6 +39,7 @@
     const h = $('admin-help-text'); if (h) h.textContent = SECTIONS[name].help;
     sessionStorage.setItem(SECTION_KEY, name);
     window.scrollTo({ top: 0 });
+    if (name === 'churn') loadChurn(churn.clinic);
   }
 
   let _adminNavBound = false;
@@ -56,6 +63,7 @@
 
   // ---- ホーム ----
   function renderHome() {
+    renderHomeChurn();
     const items = window.__lastPromoItems || null;
     const statsBox = $('home-promo-stats');
     const recentBox = $('home-promo-recent');
@@ -91,6 +99,245 @@
           <div class="home-stat"><div class="home-stat-num"><b>${c.cacheHitRate != null ? c.cacheHitRate : '-'}</b><span>%</span></div><small>キャッシュ率（高いほど軽い）</small></div>`;
       }
     }
+  }
+
+  // ---- 離反リスト ----
+  const CLINICS = {
+    '192': { name: '長泉三島院', phone: '055-950-8703' },
+    '193': { name: '裾野長泉院', phone: '055-993-6877' },
+  };
+  const DEFAULT_TEMPLATES = [
+    { id: 'osashiburi', name: 'お久しぶりのご様子うかがい', body:
+`{name}様
+
+リカバリー鍼灸院 {clinic}です。
+前回のご来院（{last}）から{elapsed}日ほど経ちましたが、その後お身体の調子はいかがでしょうか。
+
+季節の変わり目は、肩こりや腰の重さ、疲れが抜けにくいといった不調が出やすい時期です。
+気になることがあれば、お気軽にご相談ください。
+
+ご予約は公式LINEまたはお電話（{phone}）で承ります。
+空き状況はこちらからご覧いただけます。
+{url}
+
+リカバリー鍼灸院 {clinic}` },
+    { id: 'maintenance', name: '定期メンテナンスのご案内', body:
+`{name}様
+
+リカバリー鍼灸院 {clinic}です。
+前回のご来院から{elapsed}日が経ちました。
+
+施術で整えたお身体も、日々の生活の中で少しずつ元の状態に戻っていきます。
+つらくなる前の定期的なメンテナンスが、良い状態を長く保つコツです。
+
+ご都合の良い日があれば、公式LINEまたはお電話（{phone}）でお知らせください。
+空き状況はこちらです。
+{url}
+
+リカバリー鍼灸院 {clinic}` },
+    { id: 'short', name: '短い声かけ', body:
+`{name}様、リカバリー鍼灸院 {clinic}です。
+前回（{last}）から{elapsed}日ほど経ちましたが、その後お身体はいかがですか？
+気になることがあればいつでもご連絡ください。ご予約はこちらから → {url}` },
+  ];
+
+  const churn = { clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null };
+
+  function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
+  function fmtBuiltAt(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  async function loadChurn(clinic, { force = false } = {}) {
+    churn.clinic = clinic;
+    document.querySelectorAll('.clinic-tab').forEach((b) => b.classList.toggle('is-active', b.dataset.clinic === clinic));
+    if (churn.data[clinic] && !force) { renderChurn(); return; }
+    if (churn.loading[clinic]) return;
+    churn.loading[clinic] = true;
+    renderChurn();
+    try {
+      // まずキャッシュだけ見る（速い）。無ければ Threease から作る（30〜60秒）
+      let r = force ? null : await apiFetch(`/api/admin/churn?clinic=${clinic}&cached=1`).then((x) => x.json());
+      if (!r || !r.data) {
+        const st = $('churn-status-text');
+        if (st) st.textContent = 'Threease から読み込み中…（30〜60秒かかります）';
+        r = await apiFetch(`/api/admin/churn?clinic=${clinic}${force ? '&force=1' : ''}`).then((x) => x.json());
+      }
+      if (r.error) throw new Error(r.message || r.error);
+      churn.data[clinic] = r.data;
+    } catch (e) {
+      if (e && e.message !== 'unauthorized') churn.data[clinic] = { error: (e && e.message) || String(e) };
+    } finally {
+      churn.loading[clinic] = false;
+      renderChurn();
+      renderHome();
+    }
+  }
+
+  function renderChurn() {
+    const list = $('churn-list');
+    const st = $('churn-status-text');
+    if (!list) return;
+    const clinic = churn.clinic;
+    const d = churn.data[clinic];
+    if (churn.loading[clinic] && !d) {
+      list.innerHTML = '<p class="admin-help">読み込み中…</p>';
+      if (st) st.textContent = '読み込み中…';
+      return;
+    }
+    if (!d) { list.innerHTML = ''; return; }
+    if (d.error) {
+      list.innerHTML = `<p class="admin-error">取得できませんでした: ${escapeHtml(d.error)}</p>`;
+      if (st) st.textContent = '';
+      return;
+    }
+    if (st) st.textContent = `Threease 読み込み ${fmtBuiltAt(d.builtAt)}（毎朝 9時ごろ自動）`;
+    if (!d.rows.length) {
+      list.innerHTML = '<div class="churn-empty">該当するお客様はいません</div>';
+      return;
+    }
+    const soon = d.rows.filter((r) => r.elapsed <= 67).length;
+    let html = `<p class="churn-summary"><b>${d.rows.length}</b> 人${soon ? `（うち 60日を超えて1週間以内: <b>${soon}</b> 人）` : ''}</p>`;
+    for (const r of d.rows) {
+      const cls = ['churn-row'];
+      if (churn.selected && churn.selected.id === r.id) cls.push('is-selected');
+      if (r.elapsed <= 67) cls.push('is-soon');
+      const items = r.lastItems && r.lastItems.length ? escapeHtml(r.lastItems.join('・')) : '';
+      html += `<div class="${cls.join(' ')}" data-id="${r.id}">
+        <div class="churn-name">${escapeHtml(r.name || '(名前なし)')} 様 <small>カルテ ${escapeHtml(r.code || '-')}</small></div>
+        <button type="button" class="admin-btn-mini" data-compose="${r.id}">文面を作る</button>
+        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>（<span class="elapsed">${r.elapsed}日</span> 経過）／ 来院 <b>${r.count}</b> 回${r.lastStaff ? ` ／ 担当 ${escapeHtml(r.lastStaff)}` : ''}${items ? `<br>前回: ${items}` : ''}</div>
+      </div>`;
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('button[data-compose]').forEach((b) => {
+      b.addEventListener('click', () => openCompose(d.rows.find((r) => String(r.id) === b.dataset.compose)));
+    });
+  }
+
+  function getTemplates() {
+    return churn.templates && churn.templates.length ? churn.templates : DEFAULT_TEMPLATES;
+  }
+
+  async function loadTemplates() {
+    try {
+      const r = await apiFetch('/api/admin/settings');
+      if (!r.ok) return;
+      const d = await r.json();
+      churn.templates = (d.settings && d.settings.churnTemplates && d.settings.churnTemplates.length) ? d.settings.churnTemplates : null;
+    } catch { /* 既定を使う */ }
+  }
+
+  function fillTemplate(body, person) {
+    const c = CLINICS[churn.clinic] || { name: '', phone: '' };
+    return String(body)
+      .replace(/\{name\}/g, person.name || '')
+      .replace(/\{last\}/g, fmtMD(person.last))
+      .replace(/\{elapsed\}/g, String(person.elapsed))
+      .replace(/\{count\}/g, String(person.count))
+      .replace(/\{clinic\}/g, c.name)
+      .replace(/\{phone\}/g, c.phone)
+      .replace(/\{url\}/g, location.origin + '/');
+  }
+
+  function openCompose(person) {
+    if (!person) return;
+    churn.selected = person;
+    const box = $('churn-compose');
+    box.hidden = false;
+    $('compose-person').textContent = `${person.name} 様（カルテ ${person.code}）・最終来院 ${fmtMD(person.last)}・${person.elapsed}日経過・来院 ${person.count}回`;
+    const templates = getTemplates();
+    if (!churn.templateId || !templates.some((t) => t.id === churn.templateId)) churn.templateId = templates[0].id;
+    renderTemplateChips();
+    applyTemplate();
+    renderChurn();
+    if (window.innerWidth < 1000) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderTemplateChips() {
+    const wrap = $('compose-templates');
+    wrap.innerHTML = getTemplates().map((t) => `<button type="button" data-tpl="${escapeHtml(t.id)}" class="${t.id === churn.templateId ? 'is-active' : ''}">${escapeHtml(t.name)}</button>`).join('');
+    wrap.querySelectorAll('button[data-tpl]').forEach((b) => b.addEventListener('click', () => { churn.templateId = b.dataset.tpl; renderTemplateChips(); applyTemplate(); }));
+  }
+
+  function applyTemplate() {
+    const t = getTemplates().find((x) => x.id === churn.templateId) || getTemplates()[0];
+    if (churn.selected) $('compose-text').value = fillTemplate(t.body, churn.selected);
+  }
+
+  function renderTemplateEditor() {
+    const wrap = $('template-fields');
+    wrap.innerHTML = getTemplates().map((t, i) => `<div class="template-field" data-idx="${i}">
+      <input type="text" value="${escapeHtml(t.name)}" data-tpl-name="${escapeHtml(t.id)}" placeholder="テンプレート名">
+      <textarea rows="7" data-tpl-body="${escapeHtml(t.id)}">${escapeHtml(t.body)}</textarea>
+    </div>`).join('');
+  }
+
+  function bindChurnUi() {
+    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { churn.selected = null; $('churn-compose').hidden = true; loadChurn(b.dataset.clinic); }));
+    $('churn-refresh').addEventListener('click', () => loadChurn(churn.clinic, { force: true }));
+    $('compose-close').addEventListener('click', () => { churn.selected = null; $('churn-compose').hidden = true; renderChurn(); });
+    $('compose-copy').addEventListener('click', async () => {
+      const ok = await copyToClipboard($('compose-text').value);
+      const info = $('compose-info');
+      info.textContent = ok ? 'コピーしました。公式LINEやSMSに貼り付けてください。' : 'コピーできませんでした。文面を選択してコピーしてください。';
+      info.hidden = false;
+      setTimeout(() => { info.hidden = true; }, 2500);
+    });
+    $('compose-edit-toggle').addEventListener('click', () => {
+      const ed = $('template-editor');
+      ed.hidden = !ed.hidden;
+      if (!ed.hidden) renderTemplateEditor();
+    });
+    $('template-save').addEventListener('click', async () => {
+      const list = getTemplates().map((t) => ({
+        id: t.id,
+        name: (document.querySelector(`[data-tpl-name="${CSS.escape(t.id)}"]`) || {}).value || t.name,
+        body: (document.querySelector(`[data-tpl-body="${CSS.escape(t.id)}"]`) || {}).value || t.body,
+      }));
+      try {
+        const r = await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: list } });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || '保存に失敗');
+        churn.templates = d.settings.churnTemplates;
+        renderTemplateChips(); applyTemplate();
+        const info = $('compose-info'); info.textContent = 'テンプレートを保存しました'; info.hidden = false;
+        setTimeout(() => { info.hidden = true; }, 2000);
+      } catch (e) { alert('保存できませんでした: ' + ((e && e.message) || e)); }
+    });
+    $('template-reset').addEventListener('click', async () => {
+      if (!confirm('テンプレートを初期の文面に戻しますか？')) return;
+      try {
+        await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: DEFAULT_TEMPLATES } });
+        churn.templates = null;
+        renderTemplateEditor(); renderTemplateChips(); applyTemplate();
+      } catch { /* ignore */ }
+    });
+  }
+
+  function renderHomeChurn() {
+    const box = $('home-churn');
+    if (!box) return;
+    box.innerHTML = ['192', '193'].map((c) => {
+      const d = churn.data[c];
+      const n = d && !d.error ? d.rows.length : null;
+      const soon = d && !d.error ? d.rows.filter((r) => r.elapsed <= 67).length : 0;
+      return `<div class="home-stat"><div class="home-stat-num"><b>${n == null ? '–' : n}</b><span>人</span></div><small><b>${CLINICS[c].name}</b>${n == null ? '<br>未読み込み（離反リストを開くと読み込みます）' : `<br>60日超えて1週間以内 <b>${soon}</b> 人・読み込み ${fmtBuiltAt(d.builtAt)}`}</small></div>`;
+    }).join('');
+  }
+
+  // ホーム用: キャッシュがある院だけ取り込む（Threease は読みに行かない）
+  async function loadChurnCachedForHome() {
+    await Promise.all(['192', '193'].map(async (c) => {
+      if (churn.data[c]) return;
+      try {
+        const r = await apiFetch(`/api/admin/churn?clinic=${c}&cached=1`).then((x) => x.json());
+        if (r && r.data) churn.data[c] = r.data;
+      } catch { /* ignore */ }
+    }));
+    renderHomeChurn();
   }
 
   async function loadStats() {

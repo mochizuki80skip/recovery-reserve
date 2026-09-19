@@ -7,5 +7,13 @@
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     }
+  ],
+  "functions": {
+    "api/admin/churn.js": { "maxDuration": 300 },
+    "api/cron-churn.js": { "maxDuration": 300 }
+  },
+  "crons": [
+    { "path": "/api/cron-churn?clinic=192", "schedule": "0 0 * * *" },
+    { "path": "/api/cron-churn?clinic=193", "schedule": "10 0 * * *" }
   ]
 }

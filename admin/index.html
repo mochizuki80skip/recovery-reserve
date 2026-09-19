@@ -37,6 +37,10 @@
         <button type="button" class="nav-item is-active" data-section="home"><span class="nav-icon">🏠</span>ホーム</button>
       </div>
       <div class="nav-group">
+        <div class="nav-group-title">毎日の運用</div>
+        <button type="button" class="nav-item" data-section="churn"><span class="nav-icon">📋</span>離反リスト</button>
+      </div>
+      <div class="nav-group">
         <div class="nav-group-title">キャンペーン</div>
         <button type="button" class="nav-item" data-section="campaigns"><span class="nav-icon">🎯</span>キャンペーン管理</button>
       </div>
@@ -64,6 +68,13 @@
         <div class="home-grid">
           <div class="home-card accent">
             <div class="home-card-head">
+              <h3>離反リスト <small>最終来院 60〜120日・次回予約なし</small></h3>
+              <button type="button" class="link-btn" data-goto="churn">離反リストへ ›</button>
+            </div>
+            <div class="home-stats" id="home-churn"><p class="admin-help">読み込み中…</p></div>
+          </div>
+          <div class="home-card">
+            <div class="home-card-head">
               <h3>キャンペーン <small>限定メニュー・専用URL</small></h3>
               <button type="button" class="link-btn" data-goto="campaigns">キャンペーン管理へ ›</button>
             </div>
@@ -88,6 +99,51 @@
               <button type="button" data-goto="campaigns" data-focus="f-code"><span>新しいキャンペーンを追加</span><small>URLコードを決めて限定メニューを登録</small></button>
             </div>
             <p class="admin-help home-note">キャンペーンURLは <code class="admin-code">https://〇〇.vercel.app/?promo=<strong>URLコード</strong></code> の形です。LINE のカード型メッセージには <code class="admin-code">/#promo=</code> 形式を使ってください。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 離反リスト -->
+      <section class="admin-section" data-section="churn" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab is-active" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span id="churn-status-text">—</span>
+            <button type="button" class="admin-btn-mini" id="churn-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <p class="admin-help">前回のご来院から <strong>60日以上120日以内</strong> で、その後のご来院も次回のご予約も無い方です。60日を超えたばかりの方が上に来ます。毎朝 9時ごろに自動で読み込みます（読み直しは 30〜60秒かかります）。</p>
+
+        <div class="churn-layout">
+          <div class="churn-list-col">
+            <div id="churn-list" class="churn-list"><p class="admin-help">読み込み中…</p></div>
+          </div>
+          <div class="churn-compose-col" id="churn-compose" hidden>
+            <div class="admin-card compose-card">
+              <div class="compose-head">
+                <h2 id="compose-title">文面を作る</h2>
+                <button type="button" class="admin-btn-mini" id="compose-close">閉じる</button>
+              </div>
+              <p class="admin-help" id="compose-person"></p>
+              <div class="compose-templates" id="compose-templates"></div>
+              <textarea id="compose-text" rows="12"></textarea>
+              <div class="compose-actions">
+                <button type="button" class="primary compose-copy" id="compose-copy">文面をコピー</button>
+                <button type="button" class="admin-btn-mini" id="compose-edit-toggle">テンプレートを編集</button>
+              </div>
+              <p class="admin-info" id="compose-info" hidden></p>
+              <div id="template-editor" class="template-editor" hidden>
+                <p class="admin-help">差し込み: <code class="admin-code">{name}</code> お名前 ／ <code class="admin-code">{last}</code> 最終来院日 ／ <code class="admin-code">{elapsed}</code> 経過日数 ／ <code class="admin-code">{count}</code> 来院回数 ／ <code class="admin-code">{clinic}</code> 院名 ／ <code class="admin-code">{phone}</code> 電話 ／ <code class="admin-code">{url}</code> 空き状況サイト</p>
+                <div id="template-fields"></div>
+                <div class="compose-actions">
+                  <button type="button" class="admin-btn-mini" id="template-save">テンプレートを保存</button>
+                  <button type="button" class="admin-btn-mini" id="template-reset">初期の文面に戻す</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

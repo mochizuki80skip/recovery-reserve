@@ -144,3 +144,46 @@
 
 /* ラジオ・チェックは横並び（.admin-form label の display:block より優先） */
 .admin-form label.admin-radio, .admin-form label.admin-checkbox { display: flex; }
+
+/* ==== 離反リスト ==== */
+.churn-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.clinic-tabs { display: flex; gap: 6px; }
+.clinic-tab { appearance: none; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 8px 16px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.clinic-tab.is-active { background: var(--gold-deep); border-color: var(--gold-deep); color: var(--white); }
+.churn-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); flex-wrap: wrap; }
+.churn-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.churn-list { display: flex; flex-direction: column; gap: 8px; }
+.churn-empty { background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 12px; padding: 18px; text-align: center; color: var(--ink-soft); font-size: 14px; }
+.churn-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--gold); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow); }
+.churn-row.is-selected { border-color: var(--gold-deep); background: var(--gold-bg); }
+.churn-row.is-soon { border-left-color: var(--error-ink); }
+.churn-name { font-size: 16px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.churn-name small { font-size: 12px; color: var(--ink-faint); font-weight: 400; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.churn-meta { grid-column: 1 / -1; font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+.churn-meta b { color: var(--ink); }
+.churn-meta .elapsed { color: var(--error-ink); font-weight: 700; }
+.churn-row .admin-btn-mini { white-space: nowrap; }
+.churn-summary { font-size: 13px; color: var(--ink-soft); margin: 0 0 8px; }
+.churn-summary b { color: var(--ink); font-size: 16px; }
+
+.compose-card { margin-bottom: 0; }
+.compose-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.compose-head h2 { margin: 0; }
+.compose-templates { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+.compose-templates button { appearance: none; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-family: inherit; font-size: 13px; cursor: pointer; }
+.compose-templates button.is-active { background: var(--ink); border-color: var(--ink); color: var(--white); }
+#compose-text { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 15px; line-height: 1.8; font-family: inherit; background: #fdfbf3; color: var(--ink); resize: vertical; }
+.compose-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.compose-copy { width: auto; margin: 0; padding: 12px 22px; font-size: 15px; }
+.template-editor { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line-strong); }
+.template-field { margin-bottom: 12px; }
+.template-field input { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; font-weight: 700; font-family: inherit; margin-bottom: 4px; }
+.template-field textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; line-height: 1.7; font-family: inherit; background: #fdfbf3; resize: vertical; }
+
+@media (min-width: 1000px) {
+  .churn-layout { grid-template-columns: minmax(0, 1fr) 440px; }
+  .churn-compose-col { position: sticky; top: 16px; }
+  .churn-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .churn-meta { grid-column: 1; }
+  .churn-row .admin-btn-mini { grid-row: 1 / span 2; align-self: center; }
+}

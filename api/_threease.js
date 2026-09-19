@@ -62,7 +62,11 @@ export async function apiGet(path, params, allowRelogin = true) {
   let auth = await readCache(AUTH_KEY);
   if (!auth || !auth.headers || isExpired(auth)) auth = await login();
   const url = new URL(`${BASE}${path}`);
-  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  // 値が配列なら同じキーを繰り返す（customer_ids[]=1&customer_ids[]=2 …）
+  Object.entries(params || {}).forEach(([k, v]) => {
+    if (Array.isArray(v)) v.forEach((x) => url.searchParams.append(k, String(x)));
+    else url.searchParams.set(k, String(v));
+  });
   const res = await fetchWithTimeout(url, { headers: { ...auth.headers, accept: 'application/json' } });
   if (res.status === 401 && allowRelogin) {
     await login();
