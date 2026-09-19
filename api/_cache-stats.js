@@ -96,7 +96,7 @@ export function recordUpstreamCall(kind, status, durationMs) {
   const redis = getRedis();
   if (!redis) return;
   const day = ymdJst(new Date());
-  const base = `st:${day}:${kind}`;
+  const base = `recovery:st:${day}:${kind}`;
   const tasks = [
     redis.incr(`${base}:total`),
     redis.incr(`${base}:${status}`),
@@ -125,7 +125,7 @@ export async function readDailyStats(daysBack = 3) {
     const kinds = ['courses', 'calendar'];
     const entry = {};
     for (const kind of kinds) {
-      const base = `st:${day}:${kind}`;
+      const base = `recovery:st:${day}:${kind}`;
       try {
         const [total, ok, fail, cacheHit, staleHit, durTotal, durCount] = await Promise.all([
           redis.get(`${base}:total`),
