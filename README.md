@@ -81,12 +81,23 @@ Threease Pro API（api.threease.com/api/v1/therapists）
 
 ローカルでは `.env.local` に書く（`dev-server.mjs` が読み込む）。Vercel では Settings → Environment Variables に設定。
 
+## 管理画面（`/admin`）
+
+ミツカルの「マルミ」と同じ構成。PC は左に固定メニュー（ホーム／キャンペーン／システム）、スマホは横スクロールのピル型タブ。
+機能は従来どおり **キャンペーン管理**（限定メニュー・専用URL）と **通信ログ** で、**ホーム** にキャンペーンの件数・最近の更新・通信状況をまとめて表示する。
+
+- `admin/index.html` 骨組み、`admin/admin-layout.css` レイアウト、`admin/admin.css` 部品、`admin/admin.js` 動作
+- 開いていたメニューは `sessionStorage` に覚える（再読み込みしても同じページ）
+- ローカル（Redis 未設定）ではキャンペーンを `.local-promos.json` に保存する
+
 ## ローカル動作確認
 
 ```bash
 node scripts/check-threease.mjs   # 接続確認
 npm run dev                       # http://localhost:4100
 ```
+
+`.env.dev.local`（git に含めない）を置くと `.env.local` の値をローカルだけ上書きできる（例: `ADMIN_PASSWORD=localtest` で管理画面の動作確認）。
 
 ## デプロイ手順（Vercel）
 

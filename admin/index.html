@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- build: post-quota verification 2026-05-15 -->
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -7,65 +6,94 @@
   <meta name="theme-color" content="#1a1a1a">
   <meta name="robots" content="noindex,nofollow">
   <title>管理画面 | リカバリー鍼灸院</title>
-  <link rel="stylesheet" href="/style.css?v=20260520k">
-  <link rel="stylesheet" href="/admin/admin.css?v=20260713b">
+  <link rel="stylesheet" href="/style.css?v=20260919">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260919">
+  <link rel="stylesheet" href="/admin/admin-layout.css?v=20260919">
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="topbar-text">
-        <h1>管理画面 / 限定メニュー</h1>
-        <p class="topbar-sub">Recovery Acupuncturist / Admin</p>
+<body class="admin-body">
+
+  <!-- ログイン -->
+  <section class="admin-card login-card" id="login-card">
+    <div class="login-brand">
+      <img src="/logo.jpg" alt="" class="login-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="login-title">リカバリー鍼灸院</div>
+        <div class="login-sub">管理画面</div>
       </div>
     </div>
-  </header>
+    <p class="admin-help">管理パスワードを入力してください。</p>
+    <input type="password" id="login-pass" autocomplete="current-password" placeholder="パスワード">
+    <button class="primary" id="login-btn">ログイン</button>
+    <p class="admin-error" id="login-error" hidden></p>
+  </section>
 
-  <main class="admin-wrap">
+  <!-- ログイン後 -->
+  <div id="auth-view" class="admin-shell" hidden>
 
-    <!-- Login -->
-    <section class="admin-card" id="login-card">
-      <h2>🔒 ログイン</h2>
-      <p class="admin-help">管理パスワードを入力してください。</p>
-      <input type="password" id="login-pass" autocomplete="current-password" placeholder="パスワード">
-      <button class="primary" id="login-btn">ログイン</button>
-      <p class="admin-error" id="login-error" hidden></p>
-    </section>
+    <nav class="admin-nav" aria-label="管理メニュー">
+      <div class="nav-brand">リカバリー鍼灸院<small>管理画面</small></div>
+      <div class="nav-group">
+        <div class="nav-group-title">ホーム</div>
+        <button type="button" class="nav-item is-active" data-section="home"><span class="nav-icon">🏠</span>ホーム</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">キャンペーン</div>
+        <button type="button" class="nav-item" data-section="campaigns"><span class="nav-icon">🎯</span>キャンペーン管理</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">システム</div>
+        <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📊</span>通信ログ</button>
+        <a class="nav-item" href="/manual.html" target="_blank" rel="noopener"><span class="nav-icon">📖</span>運用マニュアル<span class="nav-ext" aria-hidden="true">↗</span></a>
+      </div>
+      <a class="nav-link" href="/" target="_blank" rel="noopener">お客様向け表示 ›</a>
+      <div class="nav-foot">
+        <button class="admin-logout" id="logout-btn">ログアウト</button>
+      </div>
+    </nav>
 
-    <!-- Authenticated views -->
-    <div id="auth-view" hidden>
-      <div class="admin-layout">
-        <aside class="admin-sidebar">
-          <div class="admin-sidebar-brand">管理メニュー</div>
-          <nav class="admin-nav">
-            <button type="button" class="admin-nav-item is-active" data-section="campaigns">
-              <span class="admin-nav-icon">🎯</span>キャンペーン管理
-            </button>
-            <button type="button" class="admin-nav-item" data-section="stats">
-              <span class="admin-nav-icon">📊</span>通信ログ
-            </button>
-            <a class="admin-nav-item" href="/manual.html" target="_blank" rel="noopener">
-              <span class="admin-nav-icon">📖</span>運用マニュアル
-              <span class="admin-nav-ext" aria-hidden="true">↗</span>
-            </a>
-          </nav>
-          <div class="admin-sidebar-footer">
-            <button class="admin-logout" id="logout-btn">ログアウト</button>
+    <header class="admin-head">
+      <div class="only-mobile head-brand">リカバリー鍼灸院 管理画面</div>
+      <h1 id="admin-title">ホーム</h1>
+      <p class="sub" id="admin-help-text"></p>
+    </header>
+
+    <main class="admin-main">
+
+      <!-- ホーム -->
+      <section class="admin-section" data-section="home">
+        <div class="home-grid">
+          <div class="home-card accent">
+            <div class="home-card-head">
+              <h3>キャンペーン <small>限定メニュー・専用URL</small></h3>
+              <button type="button" class="link-btn" data-goto="campaigns">キャンペーン管理へ ›</button>
+            </div>
+            <div class="home-stats" id="home-promo-stats"><p class="admin-help">読み込み中…</p></div>
+            <div class="home-recent-title">最近更新したキャンペーン</div>
+            <div class="home-recent" id="home-promo-recent"></div>
           </div>
-        </aside>
 
-        <div class="admin-main">
+          <div class="home-card">
+            <div class="home-card-head">
+              <h3>通信状況 <small>Threease との通信</small></h3>
+              <button type="button" class="link-btn" data-goto="stats">通信ログへ ›</button>
+            </div>
+            <div class="home-stats" id="home-stats"><p class="admin-help">読み込み中…</p></div>
+          </div>
 
-      <section class="admin-section" data-section="stats" hidden>
-      <section class="admin-card">
-        <h2>📊 通信ログ（直近3日）</h2>
-        <p class="admin-help">「上流成功率」は threease を実際に叩いた呼び出しの成功割合（キャッシュ命中は除外）。「キャッシュ率」が高いほど threease への負荷が軽く、失敗・遅延が起きにくくなります。失敗が多い時はカレンダーに「?」枠が出やすくなります。</p>
-        <div id="stats-panel" class="stats-panel">
-          <p class="admin-help">読み込み中…</p>
+          <div class="home-card">
+            <h3>ショートカット</h3>
+            <div class="home-links">
+              <a href="/" target="_blank" rel="noopener"><span>お客様向け表示を開く</span><small>空き状況サイト（新しいタブ）</small></a>
+              <a href="/manual.html" target="_blank" rel="noopener"><span>運用マニュアル</span><small>キャンペーンURLの作り方・使い方</small></a>
+              <button type="button" data-goto="campaigns" data-focus="f-code"><span>新しいキャンペーンを追加</span><small>URLコードを決めて限定メニューを登録</small></button>
+            </div>
+            <p class="admin-help home-note">キャンペーンURLは <code class="admin-code">https://〇〇.vercel.app/?promo=<strong>URLコード</strong></code> の形です。LINE のカード型メッセージには <code class="admin-code">/#promo=</code> 形式を使ってください。</p>
+          </div>
         </div>
       </section>
-      </section>
 
-      <section class="admin-section" data-section="campaigns">
+      <!-- キャンペーン管理 -->
+      <section class="admin-section" data-section="campaigns" hidden>
       <div class="admin-2col">
 
       <section class="admin-card">
@@ -79,7 +107,7 @@
           <label>
             <span>URLコード <small>(英数字・ハイフン・アンダーバー、3〜40文字)</small></span>
             <div class="admin-input-row">
-              <input type="text" name="code" id="f-code" required pattern="[a-zA-Z0-9_-]{3,40}" placeholder="例: chirashi-spring2026">
+              <input type="text" name="code" id="f-code" required pattern="[a-zA-Z0-9_\-]{3,40}" placeholder="例: chirashi-spring2026">
               <button type="button" id="f-code-rand" class="admin-btn-mini">ランダム生成</button>
             </div>
           </label>
@@ -259,14 +287,24 @@
       </section>
 
       </div> <!-- /.admin-2col -->
-      </section> <!-- /.admin-section campaigns -->
+      </section> <!-- /campaigns -->
 
-        </div> <!-- /.admin-main -->
-      </div> <!-- /.admin-layout -->
-    </div>
+      <!-- 通信ログ -->
+      <section class="admin-section" data-section="stats" hidden>
+      <section class="admin-card">
+        <h2>通信ログ（直近3日）</h2>
+        <p class="admin-help">「上流成功率」は Threease を実際に読みに行った回数のうち成功した割合（キャッシュ命中は除外）。「キャッシュ率」が高いほど Threease への負荷が軽く、失敗・遅延が起きにくくなります。失敗が多い時はカレンダーに「?」枠が出やすくなります。</p>
+        <div id="stats-panel" class="stats-panel">
+          <p class="admin-help">読み込み中…</p>
+        </div>
+      </section>
+      </section>
 
-  </main>
+    </main>
 
-  <script src="/admin/admin.js?v=20260713b"></script>
+    <footer class="admin-foot"><small>Recovery Acupuncturist / Admin</small></footer>
+  </div>
+
+  <script src="/admin/admin.js?v=20260919"></script>
 </body>
 </html>

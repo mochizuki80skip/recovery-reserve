@@ -45,13 +45,27 @@ export function readJsonBody(req) {
 
 const PROMO_KEY = 'reserve:promos';
 
+// ローカル確認時（Redis 未設定かつ Vercel 外）は .local-promos.json に読み書きする
+import { readFile, writeFile } from 'node:fs/promises';
+const LOCAL_PROMOS_FILE = new URL('../.local-promos.json', import.meta.url);
+const useLocalFile = () => !process.env.VERCEL
+  && !(process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL);
+
 export async function listPromos() {
+  if (useLocalFile()) {
+    try { const items = JSON.parse(await readFile(LOCAL_PROMOS_FILE, 'utf8')); return Array.isArray(items) ? items : []; }
+    catch { return []; }
+  }
   const redis = getRedis();
   const items = await redis.get(PROMO_KEY);
   return Array.isArray(items) ? items : [];
 }
 
 export async function savePromos(items) {
+  if (useLocalFile()) {
+    await writeFile(LOCAL_PROMOS_FILE, JSON.stringify(items, null, 2));
+    return;
+  }
   const redis = getRedis();
   await redis.set(PROMO_KEY, items);
 }

@@ -10,16 +10,19 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 4100;
 
+// .env.local を読み、あれば .env.dev.local（ローカル専用の上書き。例: ADMIN_PASSWORD の仮の値）で上書きする
 async function loadEnvLocal() {
-  try {
-    const text = await readFile(join(ROOT, '.env.local'), 'utf8');
-    for (const line of text.split(/\r?\n/)) {
-      const m = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*)$/);
-      if (!m) continue;
-      const value = m[2].trim().replace(/^["']+|["']+$/g, '');
-      if (value && process.env[m[1]] === undefined) process.env[m[1]] = value;
-    }
-  } catch { /* .env.local が無ければ何もしない */ }
+  for (const [file, override] of [['.env.local', false], ['.env.dev.local', true]]) {
+    try {
+      const text = await readFile(join(ROOT, file), 'utf8');
+      for (const line of text.split(/\r?\n/)) {
+        const m = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*)$/);
+        if (!m) continue;
+        const value = m[2].trim().replace(/^["']+|["']+$/g, '');
+        if (value && (override || process.env[m[1]] === undefined)) process.env[m[1]] = value;
+      }
+    } catch { /* 無ければ何もしない */ }
+  }
 }
 
 const MIME = {

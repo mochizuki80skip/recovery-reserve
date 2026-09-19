@@ -12,27 +12,85 @@
     refreshTargetCourseOptions();
     bindPromoFilters();
     bindAdminNav();
+    showSection(sessionStorage.getItem(SECTION_KEY) || 'home');
     loadPromos();
     loadStats();
   }
 
-  // サイドバーのナビ: 「キャンペーン管理」「通信ログ」をクリックで切替（PC向け）。
-  // モバイルでは CSS で常に全セクション表示にしているのでナビは飾り扱い。
+  // ---- メニュー（左メニュー / スマホはピル型タブ）----
+  const SECTION_KEY = 'recovery-admin-section';
+  const SECTIONS = {
+    home: { title: 'ホーム', help: 'キャンペーンの状況と Threease との通信状況をまとめて確認できます。' },
+    campaigns: { title: 'キャンペーン管理', help: 'チラシや紹介用の限定メニューを登録し、専用URL（?promo=コード）を発行します。' },
+    stats: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
+  };
+
+  function showSection(name) {
+    if (!SECTIONS[name]) name = 'home';
+    document.querySelectorAll('.admin-section').forEach((s) => { s.hidden = s.dataset.section !== name; });
+    document.querySelectorAll('.nav-item[data-section]').forEach((b) => { b.classList.toggle('is-active', b.dataset.section === name); });
+    const t = $('admin-title'); if (t) t.textContent = SECTIONS[name].title;
+    const h = $('admin-help-text'); if (h) h.textContent = SECTIONS[name].help;
+    sessionStorage.setItem(SECTION_KEY, name);
+    window.scrollTo({ top: 0 });
+  }
+
   let _adminNavBound = false;
   function bindAdminNav() {
     if (_adminNavBound) return;
     _adminNavBound = true;
-    document.querySelectorAll('.admin-nav-item[data-section]').forEach((btn) => {
+    document.querySelectorAll('.nav-item[data-section]').forEach((btn) => {
+      btn.addEventListener('click', () => showSection(btn.dataset.section));
+    });
+    // ホームのショートカット（data-goto）。data-focus があればその入力欄へ
+    document.querySelectorAll('[data-goto]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const target = btn.dataset.section;
-        document.querySelectorAll('.admin-section').forEach((s) => {
-          s.hidden = s.dataset.section !== target;
-        });
-        document.querySelectorAll('.admin-nav-item[data-section]').forEach((b) => {
-          b.classList.toggle('is-active', b === btn);
-        });
+        showSection(btn.dataset.goto);
+        if (btn.dataset.focus) {
+          const el = $(btn.dataset.focus);
+          if (el) setTimeout(() => { el.focus(); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
+        }
       });
     });
+  }
+
+  // ---- ホーム ----
+  function renderHome() {
+    const items = window.__lastPromoItems || null;
+    const statsBox = $('home-promo-stats');
+    const recentBox = $('home-promo-recent');
+    if (statsBox && items) {
+      const counts = { override: 0, shortcut: 0, addon: 0, auto: 0, newLine: 0 };
+      for (const p of items) { counts[detectKind(p)]++; if (p.autoOpen) counts.auto++; if (p.useNewCustomerLine) counts.newLine++; }
+      statsBox.innerHTML = `
+        <div class="home-stat"><div class="home-stat-num"><b>${items.length}</b><span>件</span></div><small>登録中のキャンペーン<br><b>${counts.override}</b> 価格上書き ／ <b>${counts.shortcut}</b> 直行 ／ <b>${counts.addon}</b> 新メニュー</small></div>
+        <div class="home-stat"><div class="home-stat-num"><b>${counts.auto}</b><span>件</span></div><small>URLを開くと自動入力されるもの</small></div>
+        <div class="home-stat"><div class="home-stat-num"><b>${counts.newLine}</b><span>件</span></div><small>初回予約を新規集客用LINEに送るもの</small></div>`;
+      const recent = items.slice(0, 3);
+      recentBox.innerHTML = recent.length
+        ? recent.map((p) => {
+          const kind = detectKind(p);
+          const title = buildPromoTitle(p, kind, findCourseNameSync(p.targetCourseId, p.forClinic, p.forFirstTime));
+          return `<div class="home-recent-item k-${kind}"><span class="t">${escapeHtml(title)}</span><span class="c">?promo=${escapeHtml(p.code)}</span></div>`;
+        }).join('')
+        : '<p class="admin-help">まだキャンペーンはありません。「キャンペーン管理」から追加できます。</p>';
+    }
+    const st = window.__lastStats;
+    const box = $('home-stats');
+    if (box && st) {
+      const days = Object.keys(st).sort().reverse();
+      const day = days[0];
+      const c = day ? (st[day].courses || {}) : null;
+      if (!c || !c.total) {
+        box.innerHTML = '<p class="admin-help">まだ今日の計測データがありません。</p>';
+      } else {
+        const rate = c.successRate == null ? 'good' : c.successRate >= 99 ? 'good' : c.successRate >= 95 ? 'warn' : 'bad';
+        box.innerHTML = `
+          <div class="home-stat"><div class="home-stat-num"><b>${c.total.toLocaleString()}</b><span>回</span></div><small>問い合わせ数（${escapeHtml(day)}）</small></div>
+          <div class="home-stat"><div class="home-stat-num ${rate}"><b>${c.successRate != null ? c.successRate : '-'}</b><span>%</span></div><small>Threease 読み込みの成功率</small></div>
+          <div class="home-stat"><div class="home-stat-num"><b>${c.cacheHitRate != null ? c.cacheHitRate : '-'}</b><span>%</span></div><small>キャッシュ率（高いほど軽い）</small></div>`;
+      }
+    }
   }
 
   async function loadStats() {
@@ -46,6 +104,8 @@
       }
       const data = await r.json();
       const stats = data.stats || {};
+      window.__lastStats = stats;
+      renderHome();
       const days = Object.keys(stats).sort().reverse();
       if (days.length === 0) {
         panel.innerHTML = '<p class="admin-help">まだ計測データがありません。</p>';
@@ -467,11 +527,13 @@
       list.innerHTML = '<p class="admin-help">登録されているキャンペーンはありません。</p>';
       if (filterBar) filterBar.hidden = true;
       window.__lastPromoItems = items;
+    renderHome();
       return;
     }
     // 更新日時の新しい順に並べる
     items = items.slice().sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
     window.__lastPromoItems = items;
+    renderHome();
 
     if (filterBar) filterBar.hidden = false;
     updateFilterCounts(items);
