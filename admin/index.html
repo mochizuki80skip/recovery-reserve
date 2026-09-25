@@ -46,6 +46,7 @@
         <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📈</span>新規継続率</button>
         <button type="button" class="nav-item" data-section="rates"><span class="nav-icon">📊</span>離反率・継続率</button>
         <button type="button" class="nav-item" data-section="symptoms"><span class="nav-icon">🩺</span>症状別</button>
+        <button type="button" class="nav-item" data-section="monthly"><span class="nav-icon">📅</span>月次の数字</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">設定</div>
@@ -273,6 +274,26 @@
           <strong>継続率</strong>: 最終来院が60日以内の方のうち次回予約がある割合。<strong>離反率</strong>: 最終来院が120日以内の方のうち60日以上あいて次回予約が無い割合。<strong>新規</strong>: 対象期間に初めて来院した方の 2・3・6回目 到達率（初回から60日未満の方は除く）。
         </p>
         <div id="symptom-tables"><p class="admin-help">読み込み中…</p></div>
+      </section>
+
+      <!-- 月次の数字 -->
+      <section class="admin-section" data-section="monthly" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span id="monthly-status">—</span>
+            <button type="button" class="admin-btn-mini" id="monthly-refresh">今月を読み直す</button>
+          </div>
+        </div>
+        <p class="admin-help">
+          <strong>新規</strong>: その月に初めて来院した人数。<strong>離反</strong>: その月に「最終来院から60日」を過ぎて、その後も来院・予約が無い人数。<strong>純増</strong> = 新規 − 離反。<br>
+          <strong>来院人数・来院回数</strong>: その月に来院した人と回数（取消・仮予約は除く）。<strong>一人当たり</strong> = 来院回数 ÷ 来院人数（通院日数の目安）。<br>
+          <strong>既存人数</strong>: 月末時点で直近2か月（当月＋前月）に来院した人数＝いま通っているカルテの枚数。
+        </p>
+        <div id="monthly-table"><p class="admin-help">読み込み中…</p></div>
       </section>
 
       <!-- 手動ブロック -->

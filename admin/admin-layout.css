@@ -237,3 +237,4 @@
 .stats-block h3 small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 12px; margin-top: 2px; }
 .sym-table th:first-child, .sym-table td:first-child { position: sticky; left: 0; background: var(--surface); }
 .sym-table tbody tr.total th, .sym-table tbody tr.total td { background: var(--gold-bg); }
+.monthly-table th small { display: block; font-size: 10px; color: var(--ink-faint); font-weight: 400; }

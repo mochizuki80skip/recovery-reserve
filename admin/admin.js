@@ -20,7 +20,7 @@
     loadCustomersCachedForHome();
   }
   let _churnBound = false;
-  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); }
+  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); bindMonthlyUi(); }
 
   // ---- メニュー（左メニュー / スマホはピル型タブ）----
   const SECTION_KEY = 'recovery-admin-section';
@@ -31,6 +31,7 @@
     stats: { title: '新規継続率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
     rates: { title: '離反率・継続率', help: '最後に担当した人ごとの離反率と、既存のお客様の継続率（次回予約の有無）。' },
     symptoms: { title: '症状別', help: 'お客様情報の「症状」ごとに、人数・継続率・離反率・新規の到達率を見ます。' },
+    monthly: { title: '月次の数字', help: '月ごとの新規・離反・来院人数・来院回数・既存人数。売上の見通しに使います。' },
     block: { title: '手動ブロック', help: 'スタッフごとに時間帯を塞ぐと、お客様向けの空き状況から消えます。' },
     campaigns: { title: 'キャンペーン管理', help: 'チラシや紹介用の限定メニューを登録し、専用URL（?promo=コード）を発行します。' },
     log: { title: '通信ログ', help: 'お客様向けサイトが Threease を読みに行った回数・成功率・キャッシュ率（直近3日）。' },
@@ -46,6 +47,7 @@
     window.scrollTo({ top: 0 });
     if (LIST_SECTIONS.includes(name)) loadCustomers(cust.clinic);
     if (name === 'block') loadBlockDay();
+    if (name === 'monthly') loadMonthly();
   }
 
   let _adminNavBound = false;
@@ -247,6 +249,7 @@
     renderStats(d);
     renderRates(d);
     renderSymptoms(d);
+    if (currentSection() === 'monthly') renderMonthly();
   }
 
   function renderList(kind, rows, isHot) {
@@ -368,7 +371,7 @@
   }
 
   function bindCustomerUi() {
-    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { closeCompose(); loadCustomers(b.dataset.clinic); }));
+    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { closeCompose(); loadCustomers(b.dataset.clinic).then(() => { if (currentSection() === 'monthly') loadMonthly(); }); }));
     document.querySelectorAll('.cust-refresh').forEach((b) => b.addEventListener('click', () => loadCustomers(cust.clinic, { force: true })));
     document.querySelectorAll('.filter-group').forEach((g) => {
       g.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
@@ -521,6 +524,96 @@
       <div class="stats-table-wrap"><table class="stats-table sym-table"><thead><tr>
         <th>症状</th><th>人数</th><th>平均<br>来院回数</th><th>継続率<br><small>既存・次回予約あり</small></th><th>離反率<br><small>60〜120日・予約なし</small></th><th>新規</th><th>2回目</th><th>3回目</th><th>6回目</th>
       </tr></thead><tbody>${line('全体', rows, true)}${entries.map(([k, list]) => line(k, list)).join('')}</tbody></table></div></div>`;
+  }
+
+  // ---- 月次の数字 ----
+  const monthly = { data: {}, loading: false, months: 12 };
+
+  function monthList(n) {
+    const today = todayYmd();
+    const [y, m] = today.split('-').map(Number);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const d = new Date(Date.UTC(y, m - 1 - i, 1));
+      out.push(d.toISOString().slice(0, 7));
+    }
+    return out; // 新しい月が先頭
+  }
+  function prevMonth(month) { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7); }
+  function monthEnd(month) { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); }
+  function monthStart(month) { return `${month}-01`; }
+
+  async function loadMonthly({ force = false } = {}) {
+    const clinic = cust.clinic;
+    if (!cust.data[clinic]) await loadCustomers(clinic);
+    if (monthly.loading) return;
+    monthly.loading = true;
+    monthly.data[clinic] = monthly.data[clinic] || {};
+    const months = monthList(monthly.months + 1); // 前月分の来院者も要るので 1 か月余分に
+    try {
+      for (const month of months) {
+        const cur = month === months[0];
+        if (monthly.data[clinic][month] && !(force && cur)) continue;
+        setMonthlyStatus(`${month.replace('-', '/')} の来院データを Threease から読み込み中…`);
+        renderMonthly();
+        const r = await apiFetch(`/api/admin/monthly?clinic=${clinic}&month=${month}${force && cur ? '&force=1' : ''}`);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.message || d.error || 'error');
+        monthly.data[clinic][month] = d;
+      }
+      setMonthlyStatus('');
+    } catch (e) {
+      if (e && e.message !== 'unauthorized') setMonthlyStatus('取得できませんでした: ' + ((e && e.message) || e));
+    } finally {
+      monthly.loading = false;
+      renderMonthly();
+    }
+  }
+  function setMonthlyStatus(t) { const el = $('monthly-status'); if (el) el.textContent = t; }
+
+  function renderMonthly() {
+    const box = $('monthly-table');
+    if (!box) return;
+    const clinic = cust.clinic;
+    const cd = cust.data[clinic];
+    const md = monthly.data[clinic] || {};
+    if (!cd || cd.error) { box.innerHTML = '<p class="admin-help">お客様データを読み込み中…</p>'; return; }
+    const rows = cd.rows;
+    const months = monthList(monthly.months);
+    let html = `<div class="stats-block"><div class="stats-table-wrap"><table class="stats-table monthly-table"><thead><tr>
+      <th>月</th><th>新規</th><th>離反</th><th>純増</th><th>来院人数</th><th>来院回数</th><th>一人当たり<br><small>通院日数</small></th><th>既存人数<br><small>直近2か月に来院</small></th>
+    </tr></thead><tbody>`;
+    for (const month of months) {
+      const s = monthStart(month); const e = monthEnd(month);
+      const newN = rows.filter((r) => r.first && r.first >= s && r.first <= e).length;
+      // 離反: 最終来院 + 60 日がこの月に入る人（その後の来院なし・次回予約なし）
+      const cs = addDays(s, -60); const ce = addDays(e, -60);
+      const churnN = rows.filter((r) => r.last && r.last >= cs && r.last <= ce && !r.next).length;
+      const m = md[month];
+      const pm = md[prevMonth(month)];
+      let active = null;
+      if (m && pm) active = new Set([...m.visitorIds, ...pm.visitorIds]).size;
+      else if (m) active = m.visitors;
+      const per = m && m.visitors ? Math.round((m.visits / m.visitors) * 100) / 100 : null;
+      const net = newN - churnN;
+      const cur = month === months[0];
+      html += `<tr${cur ? ' class="total"' : ''}><th>${month.replace('-', '/')}${cur ? '<small>（今月・途中）</small>' : ''}</th>
+        <td class="num">${newN}</td><td class="num">${churnN}</td>
+        <td class="num ${net > 0 ? 'good' : net < 0 ? 'bad' : ''}">${net > 0 ? '+' : ''}${net}</td>
+        <td class="num">${m ? m.visitors : '<span class="muted">…</span>'}</td>
+        <td class="num">${m ? m.visits : '<span class="muted">…</span>'}</td>
+        <td class="num">${per != null ? per : '<span class="muted">…</span>'}</td>
+        <td class="num">${active != null ? active : '<span class="muted">…</span>'}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div></div>';
+    const loaded = months.filter((mo) => md[mo]).length;
+    html += `<p class="admin-help">来院データ: ${loaded}/${months.length} か月分（終わった月は保存済み、今月は12時間ごとに更新）。新規・離反はお客様データ（${fmtBuiltAt(cd.builtAt)} 読み込み）から計算。</p>`;
+    box.innerHTML = html;
+  }
+
+  function bindMonthlyUi() {
+    $('monthly-refresh').addEventListener('click', () => loadMonthly({ force: true }));
   }
 
   // ---- 手動ブロック ----
