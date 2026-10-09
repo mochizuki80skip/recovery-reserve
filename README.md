@@ -69,6 +69,14 @@ Threease Pro API（api.threease.com/api/v1/therapists）
 
 保存するのは正規化した最小形（日付・スタッフID・開始/終了の分・状態）だけで、お客様の名前は保存しない。
 
+## 公式LINEの中で開く URL（LIFF）
+
+LINE のトークやリッチメニューの普通の URL は端末設定によって外部ブラウザで開くことがある。LIFF URL（`https://liff.line.me/<LIFF ID>?promo=<コード>`）なら必ず LINE の中で開く。
+
+- 管理画面「キャンペーン管理」の「公式LINEの中で開くURL（LIFF）」に LIFF ID を保存すると（`api/admin/settings.js` の `liffId`、Redis `recovery:settings`）、各キャンペーンに「公式LINE用 (LIFF)」の URL とコピーが出る
+- LIFF ID の作り方: LINE Developers → 公式LINEと同じプロバイダー → LINEログインチャネル → LIFF 追加（Full、エンドポイント `https://recovery-reserve.vercel.app/`、scope openid、ボットリンク Off）→ 公開
+- お客様ページ `app.js` は `?liff.state=%3Fpromo%3D…` で開かれたら普通の `?promo=` に書き戻す（LIFF SDK は使っていない。LINE ログインは不要）
+
 ## Threease への負荷（読みに行く回数）
 
 - **空き状況**: 院ごと・7 日ブロックごとに、シフト 1 回＋予約 1〜2 ページ（＝2〜3 呼び出し）。60 秒以内は保存済みを返し、期限切れは前回分を即返して裏で 1 回だけ読み直す（同時アクセスはロックと進行中共有でまとめる）。誰も見ていない時間は読まない。院情報（スタッフ・コース・ユニット）は 1 時間に 3〜7 呼び出し
