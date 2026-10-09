@@ -488,3 +488,6 @@
 }
 
 .stats-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; line-height: 1.5; }
+.promo-item-url-label.liff { color: #1d7a3f; background: #e4f6ea; border-color: #a8dfbd; }
+.liff-howto summary { cursor: pointer; font-weight: 700; color: var(--ink); }
+.liff-howto ol { padding-left: 20px; line-height: 1.8; }

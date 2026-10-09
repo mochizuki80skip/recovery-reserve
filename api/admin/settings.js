@@ -33,7 +33,9 @@ export function normalizeSettings(raw) {
       templates.push({ id, name, body });
     }
   }
-  return { churnTemplates: templates };
+  // LIFF ID（公式LINEの中でサイトを開くための URL 用。例 1234567890-AbCdEfGh）
+  const liffId = /^\d{10}-[A-Za-z0-9]{6,12}$/.test(String(src.liffId || '').trim()) ? String(src.liffId).trim() : '';
+  return { churnTemplates: templates, liffId };
 }
 
 async function load() {

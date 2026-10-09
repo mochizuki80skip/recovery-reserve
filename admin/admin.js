@@ -20,7 +20,7 @@
     loadCustomersCachedForHome();
   }
   let _churnBound = false;
-  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); bindMonthlyUi(); }
+  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); bindMonthlyUi(); bindLiffUi(); }
 
   // ---- メニュー（左メニュー / スマホはピル型タブ）----
   const SECTION_KEY = 'recovery-admin-section';
@@ -324,7 +324,29 @@
       if (!r.ok) return;
       const d = await r.json();
       cust.templates = (d.settings && d.settings.churnTemplates && d.settings.churnTemplates.length) ? d.settings.churnTemplates : null;
+      cust.liffId = (d.settings && d.settings.liffId) || '';
+      const inp = $('f-liff-id'); if (inp) inp.value = cust.liffId;
+      if (window.__lastPromoItems) renderPromos(window.__lastPromoItems);
     } catch { /* 既定を使う */ }
+  }
+  function liffUrlFor(code) { return `https://liff.line.me/${cust.liffId}?promo=${encodeURIComponent(code)}`; }
+  function bindLiffUi() {
+    const btn = $('f-liff-save'); if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const id = $('f-liff-id').value.trim();
+      const info = $('f-liff-info');
+      if (id && !/^\d{10}-[A-Za-z0-9]{6,12}$/.test(id)) { info.textContent = 'LIFF ID の形が違います（例: 1234567890-AbCdEfGh）'; info.hidden = false; return; }
+      try {
+        const r = await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: cust.templates || [], liffId: id } });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || '保存に失敗');
+        cust.liffId = d.settings.liffId || '';
+        info.textContent = cust.liffId ? '保存しました。各キャンペーンに「公式LINE用 (LIFF)」の URL が出ます。' : 'LIFF ID を消しました。';
+        info.hidden = false;
+        if (window.__lastPromoItems) renderPromos(window.__lastPromoItems);
+        setTimeout(() => { info.hidden = true; }, 3000);
+      } catch (e) { info.textContent = '保存できませんでした: ' + ((e && e.message) || e); info.hidden = false; }
+    });
   }
   function fillTemplate(body, person) {
     const c = CLINICS[cust.clinic] || { name: '', phone: '' };
@@ -401,7 +423,7 @@
         body: (document.querySelector(`[data-tpl-body="${CSS.escape(t.id)}"]`) || {}).value || t.body,
       }));
       try {
-        const r = await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: list } });
+        const r = await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: list, liffId: cust.liffId || '' } });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || '保存に失敗');
         cust.templates = d.settings.churnTemplates;
@@ -413,7 +435,7 @@
     $('template-reset').addEventListener('click', async () => {
       if (!confirm('テンプレートを初期の文面に戻しますか？')) return;
       try {
-        await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: DEFAULT_TEMPLATES } });
+        await apiFetch('/api/admin/settings', { method: 'PUT', body: { churnTemplates: DEFAULT_TEMPLATES, liffId: cust.liffId || '' } });
         cust.templates = null;
         renderTemplateEditor(); renderTemplateChips(); applyTemplate();
       } catch { /* ignore */ }
@@ -1199,6 +1221,7 @@
       // LINE のカード型メッセージなどで ?promo= 部分が剥がされる経路
       // 用に、# 形式の URL も用意する（ハッシュは絶対に剥がされない）
       const lineUrl = location.origin + '/#promo=' + encodeURIComponent(p.code);
+      const liffId = cust.liffId || '';
       const chips = [];
       if (p.autoOpen) chips.push(`<span class="tag tag-auto">⚡ 自動進行</span>`);
       if (p.useNewCustomerLine) chips.push(`<span class="tag">💬 初回は新規集客用LINEへ</span>`);
@@ -1232,6 +1255,11 @@
           <input type="text" readonly value="${escapeHtml(lineUrl)}" data-url-line-for="${escapeHtml(p.code)}">
           <button type="button" class="admin-btn-mini" data-act="copy-line" data-code="${escapeHtml(p.code)}">コピー</button>
         </div>
+        ${liffId ? `<div class="promo-item-url-row promo-item-url-line">
+          <span class="promo-item-url-label liff" title="LINE のトーク・リッチメニューから押すと LINE の中で開く">公式LINE用 (LIFF)</span>
+          <input type="text" readonly value="${escapeHtml(liffUrlFor(p.code))}">
+          <button type="button" class="admin-btn-mini" data-act="copy-liff" data-code="${escapeHtml(p.code)}">コピー</button>
+        </div>` : ''}
         <div class="promo-item-footer">
           <span class="promo-item-code-mini">?promo=<strong>${escapeHtml(p.code)}</strong></span>
           <div class="promo-item-actions">
@@ -1306,6 +1334,13 @@
           btn.textContent = ok ? 'コピー済' : '失敗';
           setTimeout(() => { btn.textContent = o; }, 1200);
         }
+      });
+      return;
+    }
+    if (act === 'copy-liff') {
+      const btn = document.querySelector(`.promo-item[data-code="${CSS.escape(code)}"] button[data-act="copy-liff"]`);
+      copyToClipboard(liffUrlFor(code)).then((ok) => {
+        if (btn) { const o = btn.textContent; btn.textContent = ok ? 'コピー済' : '失敗'; setTimeout(() => { btn.textContent = o; }, 1200); }
       });
       return;
     }

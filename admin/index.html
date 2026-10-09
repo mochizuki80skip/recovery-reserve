@@ -468,6 +468,26 @@
         </form>
       </section>
 
+      <section class="admin-card liff-card">
+        <h2>公式LINEの中で開くURL（LIFF）</h2>
+        <p class="admin-help">LINE Developers で作った <strong>LIFF ID</strong> を入れると、各キャンペーンに「公式LINE用 (LIFF)」の URL が増えます。この URL は LINE のトークやリッチメニューから押すと、外のブラウザではなく <strong>LINE の中</strong>で開きます。</p>
+        <div class="admin-input-row">
+          <input type="text" id="f-liff-id" placeholder="例: 1234567890-AbCdEfGh" autocomplete="off">
+          <button type="button" class="admin-btn-mini" id="f-liff-save">保存</button>
+        </div>
+        <p class="admin-info" id="f-liff-info" hidden></p>
+        <details class="admin-help liff-howto">
+          <summary>LIFF ID の作り方（初回だけ）</summary>
+          <ol>
+            <li><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers コンソール</a> で、公式LINEが入っている<strong>同じプロバイダー</strong>を開く</li>
+            <li>「新規チャネル作成」→ <strong>LINEログイン</strong> を作る（アプリタイプ: ウェブアプリ）</li>
+            <li>そのチャネルの「LIFF」タブ → 追加。サイズ <strong>Full</strong>、エンドポイントURL <code class="admin-code">https://recovery-reserve.vercel.app/</code>、Scope は <strong>openid</strong> だけで可、ボットリンク機能は <strong>Off</strong></li>
+            <li>チャネルを「公開」にして、表示された LIFF ID（数字10桁-英数字）をここに貼って保存</li>
+          </ol>
+          <p>LIFF URL は1つで両院のキャンペーンに使えます。</p>
+        </details>
+      </section>
+
       <section class="admin-card">
         <h2>現在のキャンペーン</h2>
         <p class="admin-help">同じURLコードを再追加すると上書きされます。</p>

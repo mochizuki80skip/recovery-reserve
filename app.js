@@ -71,6 +71,20 @@
   // In-memory cache: courses[clinic][forNew] = Promise<courses[]>
   const courseCache = {};
 
+  // LIFF URL（https://liff.line.me/<ID>?promo=xxx）で開かれると、LINE は本来の ?promo= を
+  // ?liff.state=%3Fpromo%3Dxxx の形で渡してくるので、普通の URL に書き戻してから読む
+  (function restoreLiffState() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const st = params.get('liff.state');
+      if (st == null) return;
+      let s = decodeURIComponent(st).trim();
+      if (s.startsWith('/')) s = s.slice(1);
+      if (s && !s.startsWith('?') && !s.startsWith('#')) s = '?' + s;
+      window.history.replaceState(null, '', window.location.pathname + s);
+    } catch { /* そのまま進む */ }
+  })();
+
   function getPromoFromUrl() {
     try {
       // ?promo=xxx と #promo=xxx の両方をサポート
