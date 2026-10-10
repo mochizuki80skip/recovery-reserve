@@ -24,13 +24,18 @@ async function buildMonth(clinic, month) {
   const until = end < today ? end : today;
   const list = await fetchAllPages(`/branches/${clinic}/reservations`, { start_date: start, end_date: until }, 'reservations', { per: 100, maxPages: 40 });
   const perCustomer = new Map();
+  const slots = {}; // customerId → ['曜日(0=日)-時', …]（いつも通う時間帯の集計用）
   let visits = 0;
   for (const r of list) {
     if (!r.customer_id || r.reservation_type === 'temporary' || NOT_VISITED.has(String(r.status || ''))) continue;
-    const date = String(r.start_time || '').slice(0, 10);
+    const st = String(r.start_time || '');
+    const date = st.slice(0, 10);
     if (date > today) continue;
     visits++;
     perCustomer.set(r.customer_id, (perCustomer.get(r.customer_id) || 0) + 1);
+    const wdJst = new Date(`${date}T00:00:00Z`).getUTCDay(); // 日付文字列の曜日（0=日）
+    const hour = Number(st.slice(11, 13));                     // start_time は +09:00 表記なので時はそのまま JST
+    (slots[r.customer_id] ||= []).push(`${wdJst}-${hour}`);
   }
   const dist = { 1: 0, 2: 0, 3: 0, '4+': 0 };
   for (const n of perCustomer.values()) dist[n >= 4 ? '4+' : n]++;
@@ -40,6 +45,7 @@ async function buildMonth(clinic, month) {
     visitors: perCustomer.size,
     visitorIds: [...perCustomer.keys()],
     perCustomer: dist,
+    slots,
     complete: end < today,
     builtAt: new Date().toISOString(),
   };
@@ -55,7 +61,7 @@ export default async function handler(req, res) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'invalid month' });
   if (month > todayJst().slice(0, 7)) return res.status(400).json({ error: 'future month' });
 
-  const key = `recovery:monthly:${clinic}:${month}`;
+  const key = `recovery:monthly2:${clinic}:${month}`; // v2: slots（時間帯）を含む
   try {
     if (req.query.force !== '1') {
       const cached = await readCache(key);

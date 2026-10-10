@@ -165,7 +165,7 @@
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
-    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonths: 6, symMonths: 6, symMin: 3 },
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonths: 6, symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
   };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
@@ -214,16 +214,75 @@
   }
   function retentionRows(d) {
     const f = cust.filters;
-    return rowsWithElapsed(d)
+    return applyTimeFilter(rowsWithElapsed(d)
       .filter((r) => r.elapsed != null && r.elapsed < 60 && r.elapsed >= Number(f.retMin))
-      .filter((r) => f.retNext === 'all' ? true : f.retNext === 'has' ? !!r.next : !r.next)
+      .filter((r) => f.retNext === 'all' ? true : f.retNext === 'has' ? !!r.next : !r.next))
       .sort((a, b) => b.elapsed - a.elapsed || a.kana.localeCompare(b.kana, 'ja'));
   }
   function churnRows(d) {
     const [lo, hi] = cust.filters.churnRange.split('-').map(Number);
-    return rowsWithElapsed(d)
-      .filter((r) => r.elapsed != null && !r.next && r.elapsed >= lo && r.elapsed <= hi)
+    return applyTimeFilter(rowsWithElapsed(d)
+      .filter((r) => r.elapsed != null && !r.next && r.elapsed >= lo && r.elapsed <= hi))
       .sort((a, b) => a.elapsed - b.elapsed || a.kana.localeCompare(b.kana, 'ja'));
+  }
+
+  // ---- いつも通う曜日・時間帯（月次の来院データ = 直近12か月の予約から） ----
+  const WD_JP = ['日', '月', '火', '水', '木', '金', '土'];
+  const bandOf = (hour) => (hour < 12 ? 'am' : hour < 15 ? 'noon' : 'pm');
+  const BAND_JP = { am: '午前', noon: '昼', pm: '夕方' };
+  function patternLoaded(clinic) {
+    const md = monthly.data[clinic] || {};
+    return monthList(monthly.months).every((m) => md[m]);
+  }
+  // { total, wd, wdN, hour, hourN, band, bandN, counts: Map('wd-band' → n) } または null
+  function visitPattern(clinic, customerId) {
+    const md = monthly.data[clinic] || {};
+    const wdC = new Map(); const hourC = new Map(); const bandC = new Map(); const combo = new Map();
+    let total = 0;
+    for (const m of monthList(monthly.months)) {
+      const list = md[m] && md[m].slots ? md[m].slots[customerId] : null;
+      if (!list) continue;
+      for (const s of list) {
+        const [wd, hour] = s.split('-').map(Number);
+        total++;
+        wdC.set(wd, (wdC.get(wd) || 0) + 1);
+        hourC.set(hour, (hourC.get(hour) || 0) + 1);
+        const band = bandOf(hour);
+        bandC.set(band, (bandC.get(band) || 0) + 1);
+        const key = `${wd}-${band}`;
+        combo.set(key, (combo.get(key) || 0) + 1);
+      }
+    }
+    if (!total) return null;
+    const top = (map) => [...map.entries()].sort((a, b) => b[1] - a[1])[0];
+    const [wd, wdN] = top(wdC); const [hour, hourN] = top(hourC); const [band, bandN] = top(bandC);
+    return { total, wd, wdN, hour, hourN, band, bandN, combo };
+  }
+  function patternHtml(r) {
+    if (!patternLoaded(cust.clinic)) return '';
+    const p = visitPattern(cust.clinic, r.id);
+    if (!p) return '<br><span class="pattern muted">通院時間帯: 直近12か月の来院なし</span>';
+    const f = cust.filters;
+    let match = '';
+    if (f.wd !== 'all' || f.band !== 'all') {
+      let n = 0;
+      for (const [k, v] of p.combo) { const [wd, band] = k.split('-'); if ((f.wd === 'all' || wd === f.wd) && (f.band === 'all' || band === f.band)) n += v; }
+      match = `・条件に合う来院 <b>${n}</b>/${p.total}回`;
+    }
+    return `<br><span class="pattern">いつも <b>${WD_JP[p.wd]}曜</b>（${p.wdN}/${p.total}回）・<b>${BAND_JP[p.band]}</b>（${p.bandN}/${p.total}回）、多い時刻 <b>${p.hour}時台</b>${match}</span>`;
+  }
+  // 曜日・時間帯フィルター: 条件に合う来院が 2 回以上、または来院の 3 割以上
+  function applyTimeFilter(rows) {
+    const f = cust.filters;
+    if (f.wd === 'all' && f.band === 'all') return rows;
+    if (!patternLoaded(cust.clinic)) return rows;
+    return rows.filter((r) => {
+      const p = visitPattern(cust.clinic, r.id);
+      if (!p) return false;
+      let n = 0;
+      for (const [k, v] of p.combo) { const [wd, band] = k.split('-'); if ((f.wd === 'all' || wd === f.wd) && (f.band === 'all' || band === f.band)) n += v; }
+      return n >= 2 || n >= Math.ceil(p.total * 0.3);
+    });
   }
 
   function renderCustomerViews() {
@@ -255,10 +314,10 @@
   function renderList(kind, rows, isHot) {
     const list = document.querySelector(`.cust-list[data-list="${kind}"]`);
     if (!list) return;
-    if (!rows.length) { list.innerHTML = '<div class="churn-empty">該当するお客様はいません</div>'; return; }
+    if (!rows.length) { list.innerHTML = `<p class="churn-summary">${patternNoteHtml()}</p><div class="churn-empty">該当するお客様はいません</div>`; return; }
     const hot = rows.filter(isHot).length;
     const hotLabel = kind === 'retention' ? '45日以上' : '60日を超えて1週間以内';
-    let html = `<p class="churn-summary"><b>${rows.length}</b> 人${hot ? `（うち ${hotLabel}: <b>${hot}</b> 人）` : ''}</p>`;
+    let html = `<p class="churn-summary"><b>${rows.length}</b> 人${hot ? `（うち ${hotLabel}: <b>${hot}</b> 人）` : ''}${patternNoteHtml()}</p>`;
     for (const r of rows) {
       const cls = ['churn-row'];
       if (cust.selected && cust.selected.id === r.id) cls.push('is-selected');
@@ -267,13 +326,14 @@
       html += `<div class="${cls.join(' ')}" data-id="${r.id}">
         <div class="churn-name">${escapeHtml(r.name || '(名前なし)')} 様 <small>カルテ ${escapeHtml(r.code || '-')}</small></div>
         <button type="button" class="admin-btn-mini" data-compose="${r.id}">文面を作る</button>
-        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>（<span class="elapsed">${r.elapsed}日</span> 経過）／ ${next} ／ 来院 <b>${r.count}</b> 回${r.ls ? ` ／ 担当 ${escapeHtml(r.ls)}` : ''}${r.first ? ` ／ 初回 ${fmtMD(r.first)}${r.fs ? `（${escapeHtml(r.fs)}）` : ''}` : ''}${r.sym && r.sym.length ? `<br>症状: ${escapeHtml(r.sym.join('・'))}` : ''}</div>
+        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>（<span class="elapsed">${r.elapsed}日</span> 経過）／ ${next} ／ 来院 <b>${r.count}</b> 回${r.ls ? ` ／ 担当 ${escapeHtml(r.ls)}` : ''}${r.first ? ` ／ 初回 ${fmtMD(r.first)}${r.fs ? `（${escapeHtml(r.fs)}）` : ''}` : ''}${r.sym && r.sym.length ? `<br>症状: ${escapeHtml(r.sym.join('・'))}` : ''}${patternHtml(r)}</div>
       </div>`;
     }
     list.innerHTML = html;
     list.querySelectorAll('button[data-compose]').forEach((b) => {
       b.addEventListener('click', () => openCompose(rows.find((r) => String(r.id) === b.dataset.compose), kind));
     });
+    list.querySelectorAll('button.pattern-load').forEach((b) => b.addEventListener('click', () => loadMonthly()));
   }
 
   // ---- 継続率・離反率 ----
@@ -312,11 +372,35 @@
     const judged = addDays(today, -60);
     const cohort = rows.filter((r) => r.first && r.first >= from && r.first <= judged);
     box.innerHTML = `<p class="churn-summary">対象: 初回来院 ${fmtMD(from)}〜${fmtMD(judged)} の新規 <b>${cohort.length}</b> 人（${fmtMD(judged)} 以降に初めて来た方は判定できないため除外）</p>`
+      + cohortByMonthTable(rows, judged)
       + continuationTable(cohort, 'fs', '継続率（初回担当スタッフ別）')
       + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）');
   }
+  // 初回来院の月ごとに「その月に来た新規がどうなったか」（直近12か月、判定できる月まで）
+  function cohortByMonthTable(rows, judged) {
+    const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
+    const months = monthList(12).filter((m) => `${m}-01` <= judged);
+    const line = (m) => {
+      const list = rows.filter((r) => r.first && r.first.slice(0, 7) === m && r.first <= judged);
+      const churned = list.filter((r) => r.elapsed != null && r.elapsed >= 60 && !r.next).length;
+      const booked = list.filter((r) => !!r.next).length;
+      const p = pct(churned, list.length);
+      const cls = p == null ? 'muted' : p <= 30 ? 'good' : p <= 50 ? 'warn' : 'bad';
+      return `<tr><th>${m.replace('-', '/')}</th><td class="num">${list.length}</td>${[2, 3, 4, 5, 6].map((k) => pctCell(list.filter((r) => visits(r) >= k).length, list.length)).join('')}<td class="num">${booked}</td><td class="num ${cls}">${p == null ? '–' : p + '%'}<small>${churned}</small></td></tr>`;
+    };
+    return `<div class="stats-block"><h3>初回来院の月別<small>その月に初めて来た方が、何回目まで来たか・いま予約があるか・離れたか</small></h3>
+      <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>初回来院月</th><th>新規</th><th>2回目</th><th>3回目</th><th>4回目</th><th>5回目</th><th>6回目</th><th>次回予約あり</th><th>離反<br><small>60日以上・予約なし</small></th></tr></thead>
+      <tbody>${months.map(line).join('')}</tbody></table></div></div>`;
+  }
 
   // ---- 文面 ----
+  // 一覧上部の案内: 通院時間帯が未読み込みなら読み込みボタン、読み込み中なら進み具合
+  function patternNoteHtml() {
+    const clinic = cust.clinic;
+    if (patternLoaded(clinic)) return '';
+    if (monthly.loading) return ` <span class="muted">／ 通院時間帯を読み込み中…（${($('monthly-status') || {}).textContent || ''}）</span>`;
+    return ` <button type="button" class="link-btn pattern-load">いつも通う曜日・時間帯を読み込む（直近12か月）›</button>`;
+  }
   function getTemplates() { return cust.templates && cust.templates.length ? cust.templates : DEFAULT_TEMPLATES; }
   async function loadTemplates() {
     try {
@@ -397,7 +481,8 @@
     document.querySelectorAll('.cust-refresh').forEach((b) => b.addEventListener('click', () => loadCustomers(cust.clinic, { force: true })));
     document.querySelectorAll('.filter-group').forEach((g) => {
       g.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-        g.querySelectorAll('button').forEach((x) => x.classList.toggle('is-active', x === b));
+        // 同じ名前のフィルター（曜日・時間帯は離反対策／離反の両方にある）は全部そろえる
+        document.querySelectorAll(`.filter-group[data-filter="${g.dataset.filter}"] button`).forEach((x) => x.classList.toggle('is-active', x.dataset.value === b.dataset.value));
         cust.filters[g.dataset.filter] = b.dataset.value;
         closeCompose();
         renderCustomerViews();
@@ -578,6 +663,7 @@
         if (monthly.data[clinic][month] && !(force && cur)) continue;
         setMonthlyStatus(`${month.replace('-', '/')} の来院データを Threease から読み込み中…`);
         renderMonthly();
+        if (currentSection() !== 'monthly') renderCustomerViews();
         const r = await apiFetch(`/api/admin/monthly?clinic=${clinic}&month=${month}${force && cur ? '&force=1' : ''}`);
         const d = await r.json();
         if (!r.ok) throw new Error(d.message || d.error || 'error');
@@ -589,6 +675,7 @@
     } finally {
       monthly.loading = false;
       renderMonthly();
+      renderCustomerViews(); // 一覧の「いつも通う時間帯」も更新
     }
   }
   function setMonthlyStatus(t) { const el = $('monthly-status'); if (el) el.textContent = t; }
