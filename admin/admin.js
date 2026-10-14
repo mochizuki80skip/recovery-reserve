@@ -12,6 +12,7 @@
     refreshTargetCourseOptions();
     bindPromoFilters();
     bindAdminNav();
+    renderStatsMonthChips();
     bindCustomerUiOnce();
     showSection(sessionStorage.getItem(SECTION_KEY) || 'home');
     loadPromos();
@@ -165,7 +166,7 @@
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
-    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonths: 6, symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
   };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
@@ -368,13 +369,37 @@
     if (!box) return;
     const rows = rowsWithElapsed(d);
     const today = rows[0] ? rows[0].today : new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-    const from = addMonths(today, -Number(cust.filters.statsMonths));
     const judged = addDays(today, -60);
-    const cohort = rows.filter((r) => r.first && r.first >= from && r.first <= judged);
-    box.innerHTML = `<p class="churn-summary">対象: 初回来院 ${fmtMD(from)}〜${fmtMD(judged)} の新規 <b>${cohort.length}</b> 人（${fmtMD(judged)} 以降に初めて来た方は判定できないため除外）</p>`
+    if (!cust.filters.statsMonth) cust.filters.statsMonth = defaultStatsMonth(judged);
+    const sel = cust.filters.statsMonth;
+    let cohort; let summary;
+    if (sel === 'all') {
+      const from = addMonths(today, -12);
+      cohort = rows.filter((r) => r.first && r.first >= from && r.first <= judged);
+      summary = `対象: 初回来院 ${from.replace(/-/g, '/')}〜${judged.replace(/-/g, '/')} の新規 <b>${cohort.length}</b> 人（${fmtMD(judged)} 以降に初めて来た方は判定できないため除外）`;
+    } else {
+      cohort = rows.filter((r) => r.first && r.first.slice(0, 7) === sel);
+      const partial = monthEnd(sel) > judged;
+      summary = `対象: ${sel.replace('-', '/')} に初めて来院した新規 <b>${cohort.length}</b> 人${partial ? `<br><span class="muted">※ 初回から60日経っていない方を含むため、数字はまだ途中です（${fmtMD(judged)} 以降に初めて来た方）</span>` : ''}`;
+    }
+    box.innerHTML = `<p class="churn-summary">${summary}</p>`
       + cohortByMonthTable(rows, judged)
       + continuationTable(cohort, 'fs', '継続率（初回担当スタッフ別）')
       + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）');
+  }
+  // 「初回来院の月」チップ（今月→過去12か月→12か月すべて）。判定しきれない月は（途中）
+  function defaultStatsMonth(judged) {
+    return monthList(13).find((m) => monthEnd(m) <= judged) || 'all';
+  }
+  function renderStatsMonthChips() {
+    const box = $('stats-month-chips');
+    if (!box) return;
+    const today = todayYmd();
+    const judged = addDays(today, -60);
+    if (!cust.filters.statsMonth) cust.filters.statsMonth = defaultStatsMonth(judged);
+    const months = monthList(13);
+    box.innerHTML = months.map((m) => `<button type="button" data-value="${m}" class="${m === cust.filters.statsMonth ? 'is-active' : ''}">${Number(m.slice(5, 7))}月${monthEnd(m) > judged ? '<small>（途中）</small>' : ''}</button>`).join('')
+      + `<button type="button" data-value="all" class="${cust.filters.statsMonth === 'all' ? 'is-active' : ''}">12か月すべて</button>`;
   }
   // 初回来院の月ごとに「その月に来た新規がどうなったか」（直近12か月、判定できる月まで）
   function cohortByMonthTable(rows, judged) {

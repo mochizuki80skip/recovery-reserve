@@ -238,12 +238,8 @@
           </div>
         </div>
         <div class="filter-row">
-          <span class="filter-label">対象期間</span>
-          <div class="filter-group" data-filter="statsMonths">
-            <button type="button" data-value="3">直近3ヶ月</button>
-            <button type="button" data-value="6" class="is-active">直近6ヶ月</button>
-            <button type="button" data-value="12">直近12ヶ月</button>
-          </div>
+          <span class="filter-label">初回来院の月</span>
+          <div class="filter-group" data-filter="statsMonth" id="stats-month-chips"></div>
         </div>
         <p class="admin-help">対象期間に初めて来院した新規のお客様のうち、2回目〜6回目まで来院した割合です。初回から60日経っていない方は「まだ判定できない」ので除きます（次回予約が入っている分は回数に含めません）。</p>
         <div id="stats-tables"><p class="admin-help">読み込み中…</p></div>

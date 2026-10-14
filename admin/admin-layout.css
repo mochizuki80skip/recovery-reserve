@@ -241,3 +241,4 @@
 .churn-meta .pattern { color: var(--ink); }
 .churn-meta .pattern.muted { color: var(--ink-faint); }
 .churn-summary .link-btn { font-size: 13px; }
+.filter-group button small { font-size: 10px; color: inherit; opacity: .7; margin-left: 2px; }
