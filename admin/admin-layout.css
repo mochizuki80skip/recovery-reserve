@@ -258,3 +258,6 @@ tr.is-open th, tr.is-open td { background: var(--gold-bg) !important; }
 .cp-meta .st.bad { color: var(--error-ink); font-weight: 700; }
 .cohort-person .admin-btn-mini { grid-column: 2; grid-row: 1 / span 2; }
 .stats-compose { margin-top: 12px; }
+.cp-meta .menu { display: inline-block; background: var(--gold-bg); border: 1px solid var(--gold); color: var(--gold-deep); border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 700; margin-left: 4px; }
+.cp-meta .menu.onecoin { background: #fff3cd; border-color: #e6c35c; color: #8a5a00; }
+.cp-meta .menu.muted { background: var(--bg); border-color: var(--line); color: var(--ink-faint); font-weight: 400; }

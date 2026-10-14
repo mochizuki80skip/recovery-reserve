@@ -25,6 +25,7 @@ async function buildMonth(clinic, month) {
   const list = await fetchAllPages(`/branches/${clinic}/reservations`, { start_date: start, end_date: until }, 'reservations', { per: 100, maxPages: 40 });
   const perCustomer = new Map();
   const slots = {}; // customerId → ['曜日(0=日)-時', …]（いつも通う時間帯の集計用）
+  const firsts = {}; // customerId → { d, menu, price, total }（初診メニューの予約。ワンコインは施術料で判定）
   let visits = 0;
   for (const r of list) {
     if (!r.customer_id || r.reservation_type === 'temporary' || NOT_VISITED.has(String(r.status || ''))) continue;
@@ -36,6 +37,14 @@ async function buildMonth(clinic, month) {
     const wdJst = new Date(`${date}T00:00:00Z`).getUTCDay(); // 日付文字列の曜日（0=日）
     const hour = Number(st.slice(11, 13));                     // start_time は +09:00 表記なので時はそのまま JST
     (slots[r.customer_id] ||= []).push(`${wdJst}-${hour}`);
+    // 初診メニュー（初診：〜／初回／ワンコイン／体験）が入っている予約 → その人の初回メニューと料金
+    const fi = (r.reservation_items || []).find((i) => /初診|初回|ワンコイン|体験/.test(String(i.product_name || '')));
+    if (fi && !firsts[r.customer_id]) {
+      const price = Math.max(0, (Number(fi.price) || 0) - (Number(fi.discount) || 0)); // 施術料（割引後）
+      let menu = String(fi.product_name || '').replace(/^初診[：:]\s*/, '').replace(/施術$/, '').trim();
+      if (price <= 1000) menu = 'ワンコイン';
+      firsts[r.customer_id] = { d: date, menu, price, total: Number(r.total_price) || 0 };
+    }
   }
   const dist = { 1: 0, 2: 0, 3: 0, '4+': 0 };
   for (const n of perCustomer.values()) dist[n >= 4 ? '4+' : n]++;
@@ -46,6 +55,7 @@ async function buildMonth(clinic, month) {
     visitorIds: [...perCustomer.keys()],
     perCustomer: dist,
     slots,
+    firsts,
     complete: end < today,
     builtAt: new Date().toISOString(),
   };
@@ -61,7 +71,7 @@ export default async function handler(req, res) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'invalid month' });
   if (month > todayJst().slice(0, 7)) return res.status(400).json({ error: 'future month' });
 
-  const key = `recovery:monthly2:${clinic}:${month}`; // v2: slots（時間帯）を含む
+  const key = `recovery:monthly3:${clinic}:${month}`; // v3: slots（時間帯）と firsts（初回メニュー）を含む
   try {
     if (req.query.force !== '1') {
       const cached = await readCache(key);
