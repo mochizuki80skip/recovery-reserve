@@ -380,13 +380,15 @@
     if (r.elapsed != null && r.elapsed >= 60) return `<span class="st bad">離反（最終来院 ${fmtMD(r.last)}・${r.elapsed}日）</span>`;
     return `<span class="st">通院中（最終来院 ${fmtMD(r.last)}・${r.elapsed}日前）</span>`;
   }
+  const openStaffRows = new Set(); // 開いている担当行（表を描き直しても開いたままにする）
   function bindStaffRows(box, cohort) {
     const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
-    box.querySelectorAll('.staff-btn').forEach((btn) => btn.addEventListener('click', () => {
+    const toggle = (btn, forceOpen) => {
       const tr = btn.closest('tr');
       const next = tr.nextElementSibling;
-      if (next && next.classList.contains('cohort-detail')) { next.remove(); tr.classList.remove('is-open'); return; }
       const key = btn.dataset.key; const staff = btn.dataset.staff;
+      if (next && next.classList.contains('cohort-detail')) { if (forceOpen) return; next.remove(); tr.classList.remove('is-open'); openStaffRows.delete(key + '|' + staff); return; }
+      openStaffRows.add(key + '|' + staff);
       const list = (staff === '全体' ? cohort : cohort.filter((r) => (r[key] || '（担当なし）') === staff))
         .slice().sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : 0));
       const cols = tr.children.length;
@@ -397,11 +399,19 @@
         </div>`).join('');
       const detail = document.createElement('tr');
       detail.className = 'cohort-detail';
-      detail.innerHTML = `<td colspan="${cols}"><div class="cohort-list">${rowsHtml || '<p class="admin-help">該当なし</p>'}</div></td>`;
+      const note = patternLoaded(cust.clinic) ? '' : `<p class="admin-help cohort-note">初回メニューと料金（ワンコインなど）は、来院データを読み込むと各行に出ます。${patternNoteHtml()}</p>`;
+      detail.innerHTML = `<td colspan="${cols}">${note}<div class="cohort-list">${rowsHtml || '<p class="admin-help">該当なし</p>'}</div></td>`;
       tr.after(detail);
       tr.classList.add('is-open');
       detail.querySelectorAll('button[data-compose-stats]').forEach((b) => b.addEventListener('click', () => openCompose(list.find((r) => String(r.id) === b.dataset.composeStats), 'stats')));
-    }));
+      detail.querySelectorAll('button.pattern-load').forEach((b) => b.addEventListener('click', () => loadMonthly()));
+    };
+    box.querySelectorAll('.staff-btn').forEach((btn) => btn.addEventListener('click', () => toggle(btn, false)));
+    for (const k of openStaffRows) {
+      const [key, staff] = k.split('|');
+      const btn = [...box.querySelectorAll('.staff-btn')].find((x) => x.dataset.key === key && x.dataset.staff === staff);
+      if (btn) toggle(btn, true);
+    }
   }
   function churnTable(rows, key, title) {
     const line = (label, list) => { const churned = list.filter((r) => !r.next).length; const p = pct(churned, list.length); const cls = p == null ? 'muted' : p <= 30 ? 'good' : p <= 50 ? 'warn' : 'bad';
