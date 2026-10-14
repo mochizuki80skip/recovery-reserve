@@ -61,6 +61,38 @@ async function buildMonth(clinic, month) {
   };
 }
 
+// 月次データを取得（保存済みがあればそれ。終わった月は無期限、今月は 12 時間）
+export async function getMonthly(clinic, month, { force = false } = {}) {
+  const key = `recovery:monthly3:${clinic}:${month}`; // v3: slots（時間帯）と firsts（初回メニュー）を含む
+  if (!force) {
+    const cached = await readCache(key);
+    if (cached) return { ...cached, cached: true };
+  }
+  const data = await buildMonth(clinic, month);
+  await writeCache(key, data, data.complete ? undefined : 12 * 3600);
+  return { ...data, cached: false };
+}
+
+// 今月から過去 n か月（新しい順、'YYYY-MM'）
+export function recentMonths(n) {
+  const [y, mo] = todayJst().split('-').map(Number);
+  return Array.from({ length: n }, (_, i) => new Date(Date.UTC(y, mo - 1 - i, 1)).toISOString().slice(0, 7));
+}
+
+// 毎朝の cron 用: 今月は作り直し、過去 13 か月で未保存の月があれば作る（保存済みは何もしない）
+export async function warmMonthly(clinic, { months = 14 } = {}) {
+  const out = {};
+  const list = recentMonths(months);
+  for (const month of list) {
+    const cur = month === list[0];
+    try {
+      const r = await getMonthly(clinic, month, { force: cur });
+      out[month] = r.cached ? 'cached' : 'built';
+    } catch (e) { out[month] = 'error: ' + ((e && e.message) || e); }
+  }
+  return out;
+}
+
 export default async function handler(req, res) {
   const auth = checkAuth(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
@@ -70,16 +102,8 @@ export default async function handler(req, res) {
   if (!CLINIC_IDS.has(clinic)) return res.status(400).json({ error: 'invalid clinic' });
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'invalid month' });
   if (month > todayJst().slice(0, 7)) return res.status(400).json({ error: 'future month' });
-
-  const key = `recovery:monthly3:${clinic}:${month}`; // v3: slots（時間帯）と firsts（初回メニュー）を含む
   try {
-    if (req.query.force !== '1') {
-      const cached = await readCache(key);
-      if (cached) return res.status(200).json({ ...cached, cached: true });
-    }
-    const data = await buildMonth(clinic, month);
-    await writeCache(key, data, data.complete ? undefined : 12 * 3600);
-    return res.status(200).json({ ...data, cached: false });
+    return res.status(200).json(await getMonthly(clinic, month, { force: req.query.force === '1' }));
   } catch (err) {
     console.error('monthly failed:', err && err.message);
     return res.status(502).json({ error: 'threease error', message: (err && err.message) || String(err) });

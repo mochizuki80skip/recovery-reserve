@@ -5,6 +5,7 @@
 import { cleanEnv } from './_store.js';
 import { CLINIC_IDS } from './_pro.js';
 import { getCustomers } from './_customers.js';
+import { warmMonthly } from './admin/monthly.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -20,7 +21,9 @@ export default async function handler(req, res) {
   for (const clinic of clinics) {
     try {
       const { data } = await getCustomers(clinic, { force: true });
-      result[clinic] = data.stats;
+      // 月次の来院データ（今月は作り直し、未保存の月は補充）→ 管理画面で待たないように
+      const months = await warmMonthly(clinic);
+      result[clinic] = { ...data.stats, monthlyBuilt: Object.values(months).filter((v) => v === 'built').length, monthlyErrors: Object.values(months).filter((v) => String(v).startsWith('error')).length };
     } catch (err) {
       result[clinic] = { error: (err && err.message) || String(err) };
     }
