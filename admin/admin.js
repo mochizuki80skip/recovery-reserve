@@ -171,7 +171,7 @@
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
-    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', summaryMonth: '', invScope: 'both', invHide: 'show', invWd: 'same', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', summaryMonth: '', invScope: 'both', invNext: 'none', invLast: 'all', invWd: 'same', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
   };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
@@ -1074,8 +1074,10 @@
     const band = inv.band;
     const today = todayYmd();
     const staffNames = inv.day && inv.day.staff ? inv.day.staff.map((s) => s.name) : [];
+    const nextF = cust.filters.invNext || 'none';
+    const lastF = cust.filters.invLast || 'all';
     return rowsWithElapsed(d)
-      .filter((r) => !r.next && r.elapsed != null)
+      .filter((r) => r.elapsed != null && (nextF === 'all' ? true : nextF === 'has' ? !!r.next : !r.next))
       .filter((r) => (scope !== 'churn' && r.elapsed >= 14 && r.elapsed <= 56) || (scope !== 'existing' && r.elapsed >= 60 && r.elapsed <= 365))
       .map((r) => {
         const p = visitPattern(cust.clinic, r.id);
@@ -1095,7 +1097,14 @@
         return { ...r, score, why, lc, recent, inBand, inWdBand, total: p.total, mainBand: p.band === band };
       })
       .filter(Boolean)
-      .filter((r) => cust.filters.invHide === 'show' || !r.recent)
+      .filter((r) => {
+        const days = r.lc ? daysBetween(r.lc.at.slice(0, 10), today) : null;
+        if (lastF === 'never') return !r.lc;
+        if (lastF === 'over14') return !r.lc || days >= 14;
+        if (lastF === 'over30') return !r.lc || days >= 30;
+        if (lastF === 'within14') return !!r.lc && days < 14;
+        return true;
+      })
       .sort((a, b) => (a.recent - b.recent) || (b.score - a.score) || (a.elapsed - b.elapsed));
   }
 
@@ -1122,10 +1131,10 @@
           <button type="button" class="admin-btn-mini primary-mini" data-contact="${r.id}">コピーして連絡済みに</button>
           ${r.lc ? `<button type="button" class="admin-btn-mini" data-uncontact="${r.id}">取り消す</button>` : ''}
         </div>
-        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>${r.ls ? `（${escapeHtml(r.ls)}）` : ''} ／ 来院 <b>${r.count}</b> 回${r.sym && r.sym.length ? ` ／ ${escapeHtml(r.sym.join('・'))}` : ''}<br><span class="pattern">${escapeHtml(r.why.join('・'))}</span>${lc ? `<br>${lc}` : ''}</div>
+        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>${r.ls ? `（${escapeHtml(r.ls)}）` : ''} ／ ${r.next ? `次回予約 <b>${fmtMD(r.next)}</b>` : '<span class="no-next">次回予約なし</span>'} ／ 来院 <b>${r.count}</b> 回${r.sym && r.sym.length ? ` ／ ${escapeHtml(r.sym.join('・'))}` : ''}<br><span class="pattern">${escapeHtml(r.why.join('・'))}</span>${lc ? `<br>${lc}` : ''}</div>
       </div>`;
     }
-    if (!rows.length) html += '<div class="churn-empty">該当するお客様はいません（「曜日を問わない」にすると増えます）</div>';
+    if (!rows.length) html += '<div class="churn-empty">該当するお客様はいません（「曜日を問わない」や「最後に案内した時」の条件を広げると増えます）</div>';
     list.innerHTML = html;
     list.querySelectorAll('button[data-contact]').forEach((x) => x.addEventListener('click', () => markContacted(x.dataset.contact, true)));
     list.querySelectorAll('button[data-uncontact]').forEach((x) => x.addEventListener('click', () => markContacted(x.dataset.uncontact, false)));
