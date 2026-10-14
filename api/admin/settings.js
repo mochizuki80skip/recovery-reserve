@@ -35,7 +35,9 @@ export function normalizeSettings(raw) {
   }
   // LIFF ID（公式LINEの中でサイトを開くための URL 用。例 1234567890-AbCdEfGh）
   const liffId = /^\d{10}-[A-Za-z0-9]{6,12}$/.test(String(src.liffId || '').trim()) ? String(src.liffId).trim() : '';
-  return { churnTemplates: templates, liffId };
+  // 空き枠の案内の文面（全体への配信のような、個人を名指ししないトーン）
+  const inviteTemplate = String(src.inviteTemplate || '').slice(0, 3000);
+  return { churnTemplates: templates, liffId, inviteTemplate };
 }
 
 async function load() {

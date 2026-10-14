@@ -40,6 +40,7 @@
         <div class="nav-group-title">毎日の運用</div>
         <button type="button" class="nav-item" data-section="retention"><span class="nav-icon">🗓️</span>離反対策リスト</button>
         <button type="button" class="nav-item" data-section="churn"><span class="nav-icon">📋</span>離反リスト</button>
+        <button type="button" class="nav-item" data-section="invite"><span class="nav-icon">📣</span>空き枠の案内</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-title">分析</div>
@@ -227,6 +228,67 @@
       </section>
 
       <!-- 継続率・離反率 -->
+      <!-- 空き枠の案内 -->
+      <section class="admin-section" data-section="invite" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <p class="admin-help">埋めたい日時を選ぶと、その時間帯に来そうなお客様（次回予約なし）が合う順に並びます。文面をコピーして公式LINEやSMSに貼り、送ったら「連絡済み」にします。文面は「全体へのご案内」の書き方で、特定の先生からの個人的な連絡にはしません。</p>
+
+        <div class="stats-block invite-pick">
+          <h3>① 埋めたい日時</h3>
+          <div class="blk-datenav">
+            <button type="button" class="admin-btn-mini" id="inv-prev">‹ 前日</button>
+            <input type="date" id="inv-date">
+            <button type="button" class="admin-btn-mini" id="inv-next">翌日 ›</button>
+            <select id="inv-time"></select>
+            <span class="admin-help inv-hint">下の表の白い枠（空き）をタップしても選べます</span>
+          </div>
+          <div id="inv-grid" class="blk-grid-wrap inv-grid"><p class="admin-help">読み込み中…</p></div>
+        </div>
+
+        <div class="stats-block">
+          <h3>② 文面 <small>日時・院名・電話・URL は自動で入ります</small></h3>
+          <textarea id="inv-text" rows="9"></textarea>
+          <div class="compose-actions">
+            <button type="button" class="primary compose-copy" id="inv-copy">文面をコピー</button>
+            <button type="button" class="admin-btn-mini" id="inv-save-template">この文面をテンプレートとして保存</button>
+            <button type="button" class="admin-btn-mini" id="inv-reset-template">初期の文面に戻す</button>
+          </div>
+          <p class="admin-info" id="inv-info" hidden></p>
+        </div>
+
+        <div class="stats-block">
+          <h3>③ 案内する候補 <small>合う順。グレーは最近連絡した人</small></h3>
+          <div class="filter-row">
+            <span class="filter-label">対象</span>
+            <div class="filter-group" data-filter="invScope">
+              <button type="button" data-value="both" class="is-active">既存＋離反</button>
+              <button type="button" data-value="existing">既存だけ（最終来院2〜8週）</button>
+              <button type="button" data-value="churn">離反だけ（60日以上）</button>
+            </div>
+            <span class="filter-label">表示</span>
+            <div class="filter-group" data-filter="invHide">
+              <button type="button" data-value="show" class="is-active">連絡済みも表示</button>
+              <button type="button" data-value="hide">連絡済みを隠す</button>
+            </div>
+          </div>
+          <div id="inv-list" class="churn-list"><p class="admin-help">読み込み中…</p></div>
+        </div>
+
+        <div class="stats-block">
+          <h3>④ 案内した結果 <small>直近90日に連絡した人が、その後予約を入れたか</small></h3>
+          <div id="inv-results"><p class="admin-help">—</p></div>
+        </div>
+      </section>
+
       <!-- 月次まとめ -->
       <section class="admin-section" data-section="summary" hidden>
         <div class="churn-toolbar">

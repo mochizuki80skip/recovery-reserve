@@ -22,7 +22,7 @@
     loadCustomersCachedForHome();
   }
   let _churnBound = false;
-  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); bindMonthlyUi(); bindLiffUi(); }
+  function bindCustomerUiOnce() { if (_churnBound) return; _churnBound = true; bindCustomerUi(); bindBlockUi(); bindMonthlyUi(); bindLiffUi(); bindInviteUi(); }
 
   // ---- メニュー（左メニュー / スマホはピル型タブ）----
   const SECTION_KEY = 'recovery-admin-section';
@@ -30,6 +30,7 @@
     home: { title: 'ホーム', help: '離反リスト・キャンペーン・Threease との通信状況をまとめて確認できます。' },
     retention: { title: '離反対策リスト', help: '最終来院から60日以内の既存のお客様。次回予約が無い方に早めにご案内します。' },
     churn: { title: '離反リスト', help: '最終来院から60日以上あいていて次回予約が無いお客様。連絡する文面をその場で作れます。' },
+    invite: { title: '空き枠の案内', help: '埋めたい日時を選ぶと、その時間帯に来そうなお客様が合う順に並びます。文面をコピーして送り、連絡済みを記録します。' },
     summary: { title: '月次まとめ', help: '月を選ぶと、その月の新規・離反・来院・担当別・離反した人・曜日×時間帯・症状が1画面で見られます。' },
     stats: { title: '新規継続率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
     rates: { title: '離反率・継続率', help: '最後に担当した人ごとの離反率と、既存のお客様の継続率（次回予約の有無）。' },
@@ -51,6 +52,7 @@
     if (LIST_SECTIONS.includes(name)) loadCustomers(cust.clinic);
     if (name === 'block') loadBlockDay();
     if (name === 'summary' && !patternLoaded(cust.clinic) && !monthly.loading) loadMonthly();
+    if (name === 'invite') loadInvite();
     if (name === 'monthly') loadMonthly();
   }
 
@@ -165,11 +167,11 @@
 前回（{last}）から{elapsed}日ほど経ちましたが、その後お身体はいかがですか？
 気になることがあればいつでもご連絡ください。ご予約はこちらから → {url}` },
   ];
-  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates', 'symptoms', 'summary'];
+  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates', 'symptoms', 'summary', 'invite'];
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
-    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', summaryMonth: '', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', summaryMonth: '', invScope: 'both', invHide: 'show', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
   };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
@@ -314,6 +316,7 @@
     renderSymptoms(d);
     if (currentSection() === 'monthly') renderMonthly();
     if (currentSection() === 'summary') renderSummary();
+    if (currentSection() === 'invite') renderInviteList();
   }
 
   function renderList(kind, rows, isHot) {
@@ -571,7 +574,7 @@
   }
 
   function bindCustomerUi() {
-    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { closeCompose(); loadCustomers(b.dataset.clinic).then(() => { if (currentSection() === 'monthly') loadMonthly(); }); }));
+    document.querySelectorAll('.clinic-tab').forEach((b) => b.addEventListener('click', () => { closeCompose(); loadCustomers(b.dataset.clinic).then(() => { if (currentSection() === 'monthly') loadMonthly(); if (currentSection() === 'invite') loadInvite(); }); }));
     document.querySelectorAll('.cust-refresh').forEach((b) => b.addEventListener('click', () => loadCustomers(cust.clinic, { force: true })));
     document.querySelectorAll('.filter-group').forEach((g) => {
       g.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
@@ -933,6 +936,252 @@
     bindStaffRows(box, cohort);
     box.querySelectorAll('button[data-compose-sum]').forEach((b) => b.addEventListener('click', () => openCompose(churnList.find((r) => String(r.id) === b.dataset.composeSum), 'summary')));
     box.querySelectorAll('button.pattern-load').forEach((b) => b.addEventListener('click', () => loadMonthly()));
+  }
+
+  // ---- 空き枠の案内（埋めたい日時 → 合うお客様 → 文面コピー → 連絡済み → 結果） ----
+  const DEFAULT_INVITE_TEMPLATE =
+`【空き枠のご案内】
+リカバリー鍼灸院 {clinic}です。いつもご利用ありがとうございます。
+
+{date} {time}〜 に空きが出ました。
+最近、お身体の調子はいかがでしょうか。ご都合が合えば、この機会にぜひご利用ください。
+
+ご予約は、このトークへのご返信、またはお電話（{phone}）で承ります。
+空き状況はこちらからもご覧いただけます。
+{url}
+
+※ 先着順のため、埋まってしまった場合はご容赦ください。`;
+
+  const inv = { date: '', time: '', day: null, loadingDay: false, contacted: {}, template: null };
+
+  function invTimeOptions() {
+    const sel = $('inv-time');
+    if (!sel || sel.options.length) return;
+    for (let t = 9 * 60; t <= 18 * 60 + 30; t += 30) { const o = document.createElement('option'); o.value = toLabel5(t); o.textContent = toLabel5(t); sel.appendChild(o); }
+  }
+  function toLabel5(min) { return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`; }
+
+  async function loadInvite({ date, time } = {}) {
+    if (date) inv.date = date;
+    if (time) inv.time = time;
+    if (!inv.date) { const d = new Date(`${todayYmd()}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); inv.date = d.toISOString().slice(0, 10); }
+    if (!inv.time) inv.time = '14:00';
+    invTimeOptions();
+    $('inv-date').value = inv.date;
+    $('inv-time').value = inv.time;
+    if (inv.template == null) await loadInviteTemplate();
+    renderInviteText();
+    await Promise.all([loadInviteDay(), loadContacted()]);
+    renderInviteList();
+    if (!patternLoaded(cust.clinic) && !monthly.loading) loadMonthly();
+  }
+
+  async function loadInviteTemplate() {
+    try {
+      const r = await apiFetch('/api/admin/settings');
+      const d = await r.json();
+      inv.template = (d.settings && d.settings.inviteTemplate) || DEFAULT_INVITE_TEMPLATE;
+    } catch { inv.template = DEFAULT_INVITE_TEMPLATE; }
+  }
+  function fillInvite(body) {
+    const c = CLINICS[cust.clinic] || { name: '', phone: '' };
+    const wd = WD_JP[new Date(`${inv.date}T00:00:00Z`).getUTCDay()];
+    return String(body)
+      .replace(/\{date\}/g, `${fmtMD(inv.date)}（${wd}）`)
+      .replace(/\{time\}/g, inv.time)
+      .replace(/\{clinic\}/g, c.name)
+      .replace(/\{phone\}/g, c.phone)
+      .replace(/\{url\}/g, location.origin + '/');
+  }
+  function renderInviteText() { const ta = $('inv-text'); if (ta) ta.value = fillInvite(inv.template || DEFAULT_INVITE_TEMPLATE); }
+
+  async function loadInviteDay() {
+    inv.loadingDay = true; inv.day = null;
+    renderInviteGrid();
+    try {
+      const r = await apiFetch(`/api/busy?clinic=${cust.clinic}&date=${inv.date}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.message || d.error || 'error');
+      inv.day = d;
+    } catch (e) { inv.day = { error: (e && e.message) || String(e) }; }
+    finally { inv.loadingDay = false; renderInviteGrid(); }
+  }
+  // その日の空き（スタッフ×30分）。白＝空き（タップで時刻を選ぶ）
+  function renderInviteGrid() {
+    const box = $('inv-grid');
+    if (!box) return;
+    const d = inv.day;
+    if (inv.loadingDay && !d) { box.innerHTML = '<p class="admin-help">空き状況を読み込み中…</p>'; return; }
+    if (!d) return;
+    if (d.error) { box.innerHTML = `<p class="admin-error">${escapeHtml(d.error)}</p>`; return; }
+    if (d.outOfRange || !d.staff.length) { box.innerHTML = '<div class="churn-empty">この日はシフトが入っていないか、表示できる範囲外です</div>'; return; }
+    const allBlocks = d.blocks['*'] || [];
+    let html = '<table class="blk-grid"><thead><tr><th></th>' + d.staff.map((s) => `<th>${escapeHtml(s.name)}</th>`).join('') + '</tr></thead><tbody>';
+    let freeCount = 0;
+    for (const slot of d.axis) {
+      html += `<tr class="${slot === inv.time ? 'inv-selected' : ''}"><th>${slot}</th>`;
+      for (const s of d.staff) {
+        let st = cellState(d, s.id, slot);
+        if (st === 'free' && allBlocks.includes(slot)) st = 'block-all';
+        if (st === 'free') freeCount++;
+        html += st === 'free'
+          ? `<td class="blk-cell blk-free"><button type="button" data-pick="${slot}" title="この時刻を選ぶ">空き</button></td>`
+          : `<td class="blk-cell blk-${st}">${st === 'res' ? '予約' : st === 'block' || st === 'block-all' ? 'ブロック' : ''}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    box.innerHTML = `<p class="churn-summary">${fmtMD(inv.date)}（${WD_JP[new Date(`${inv.date}T00:00:00Z`).getUTCDay()]}）出勤 ${d.staff.length} 人 ／ 空き <b>${freeCount}</b> 枠（30分単位）</p>` + html;
+    box.querySelectorAll('button[data-pick]').forEach((b) => b.addEventListener('click', () => { inv.time = b.dataset.pick; $('inv-time').value = inv.time; renderInviteText(); renderInviteGrid(); renderInviteList(); }));
+  }
+
+  async function loadContacted() {
+    try {
+      const r = await apiFetch(`/api/admin/customers?clinic=${cust.clinic}&contacted=1`);
+      const d = await r.json();
+      inv.contacted = d.contacted || {};
+    } catch { inv.contacted = {}; }
+  }
+  function lastContact(id) { const l = inv.contacted[String(id)]; return l && l.length ? l[l.length - 1] : null; }
+
+  // 候補: 次回予約なし。既存＝最終来院 14〜56 日、離反＝60 日以上（365 日まで）。合う順に並べる
+  function inviteCandidates() {
+    const d = cust.data[cust.clinic];
+    if (!d || d.error) return [];
+    const scope = cust.filters.invScope;
+    const wd = String(new Date(`${inv.date}T00:00:00Z`).getUTCDay());
+    const hour = Number(inv.time.slice(0, 2));
+    const band = bandOf(hour);
+    const loaded = patternLoaded(cust.clinic);
+    const today = todayYmd();
+    return rowsWithElapsed(d)
+      .filter((r) => !r.next && r.elapsed != null)
+      .filter((r) => (scope !== 'churn' && r.elapsed >= 14 && r.elapsed <= 56) || (scope !== 'existing' && r.elapsed >= 60 && r.elapsed <= 365))
+      .map((r) => {
+        let score = 0; let why = [];
+        const p = loaded ? visitPattern(cust.clinic, r.id) : null;
+        if (p) {
+          let same = 0; let sameWd = 0; let sameBand = 0;
+          for (const [k, v] of p.combo) { const [w, b] = k.split('-'); if (w === wd && b === band) same += v; if (w === wd) sameWd += v; if (b === band) sameBand += v; }
+          if (same) { score += 3 + Math.min(3, same); why.push(`${WD_JP[wd]}曜${BAND_JP[band]}に ${same}/${p.total} 回`); }
+          else if (sameWd) { score += 2; why.push(`${WD_JP[wd]}曜に ${sameWd}/${p.total} 回`); }
+          else if (sameBand) { score += 1; why.push(`${BAND_JP[band]}に ${sameBand}/${p.total} 回`); }
+          if (Math.abs(p.hour - hour) <= 1) score += 1;
+        }
+        if (r.elapsed >= 14 && r.elapsed <= 56) score += 2; // まだ離れていない既存を優先
+        const staffNames = inv.day && inv.day.staff ? inv.day.staff.map((s) => s.name) : [];
+        if (r.ls && staffNames.includes(r.ls)) { score += 1; why.push(`前回の担当 ${r.ls} が出勤`); }
+        const lc = lastContact(r.id);
+        const recent = lc && lc.at.slice(0, 10) >= addDays(today, -14);
+        return { ...r, score, why, lc, recent, pattern: p };
+      })
+      .filter((r) => cust.filters.invHide === 'show' || !r.recent)
+      .sort((a, b) => (a.recent - b.recent) || (b.score - a.score) || (a.elapsed - b.elapsed));
+  }
+
+  function renderInviteList() {
+    const list = $('inv-list');
+    if (!list) return;
+    const d = cust.data[cust.clinic];
+    if (!d || d.error) { list.innerHTML = '<p class="admin-help">お客様データを読み込み中…</p>'; return; }
+    const rows = inviteCandidates();
+    const loaded = patternLoaded(cust.clinic);
+    const hot = rows.filter((r) => r.score >= 4 && !r.recent).length;
+    let html = `<p class="churn-summary"><b>${rows.length}</b> 人${hot ? `（うち曜日・時間帯がよく合う: <b>${hot}</b> 人）` : ''}${loaded ? '' : ` <span class="muted">／ 来院の傾向を読み込み中…（終わると合う順になります）</span>`}</p>`;
+    for (const r of rows) {
+      const cls = ['churn-row', 'inv-row'];
+      if (r.recent) cls.push('is-contacted');
+      if (r.score >= 4 && !r.recent) cls.push('is-soon');
+      const kind = r.elapsed >= 60 ? `<span class="tag tag-churn">離反 ${r.elapsed}日</span>` : `<span class="tag tag-exist">既存 ${r.elapsed}日</span>`;
+      const why = r.why.length ? r.why.join('・') : (loaded ? '傾向のデータなし' : '');
+      const lc = r.lc ? `<span class="contacted-mark">連絡済 ${fmtMD(r.lc.at.slice(0, 10))}${r.lc.date ? `（${fmtMD(r.lc.date)} ${r.lc.time} の案内）` : ''}</span>` : '';
+      html += `<div class="${cls.join(' ')}" data-id="${r.id}">
+        <div class="churn-name">${escapeHtml(r.name || '(名前なし)')} 様 <small>カルテ ${escapeHtml(r.code || '-')}</small> ${kind}</div>
+        <div class="inv-actions">
+          <button type="button" class="admin-btn-mini primary-mini" data-contact="${r.id}">コピーして連絡済みに</button>
+          ${r.lc ? `<button type="button" class="admin-btn-mini" data-uncontact="${r.id}">取り消す</button>` : ''}
+        </div>
+        <div class="churn-meta">最終来院 <b>${fmtMD(r.last)}</b>${r.ls ? `（${escapeHtml(r.ls)}）` : ''} ／ 来院 <b>${r.count}</b> 回${r.sym && r.sym.length ? ` ／ ${escapeHtml(r.sym.join('・'))}` : ''}${why ? `<br><span class="pattern">${escapeHtml(why)}</span>` : ''}${lc ? `<br>${lc}` : ''}</div>
+      </div>`;
+    }
+    if (!rows.length) html += '<div class="churn-empty">該当するお客様はいません</div>';
+    list.innerHTML = html;
+    list.querySelectorAll('button[data-contact]').forEach((b) => b.addEventListener('click', () => markContacted(b.dataset.contact, true)));
+    list.querySelectorAll('button[data-uncontact]').forEach((b) => b.addEventListener('click', () => markContacted(b.dataset.uncontact, false)));
+    renderInviteResults();
+  }
+
+  async function markContacted(id, on) {
+    if (on) {
+      const ok = await copyToClipboard($('inv-text').value);
+      const info = $('inv-info');
+      info.textContent = ok ? '文面をコピーしました。公式LINEやSMSに貼って送ってください。' : 'コピーできませんでした。文面を選択してコピーしてください。';
+      info.hidden = false; setTimeout(() => { info.hidden = true; }, 2500);
+    }
+    try {
+      const r = await apiFetch('/api/admin/customers', { method: 'POST', body: { clinic: cust.clinic, action: on ? 'contact' : 'uncontact', customerId: id, date: inv.date, time: inv.time } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '保存に失敗');
+      inv.contacted = d.contacted || {};
+    } catch (e) { alert('連絡済みを保存できませんでした: ' + ((e && e.message) || e)); }
+    renderInviteList();
+  }
+
+  // 結果: 直近90日に連絡した人のうち、次回予約が入った／来院した人
+  function renderInviteResults() {
+    const box = $('inv-results');
+    if (!box) return;
+    const d = cust.data[cust.clinic];
+    if (!d || d.error) return;
+    const byId = new Map(rowsWithElapsed(d).map((r) => [String(r.id), r]));
+    const since = addDays(todayYmd(), -90);
+    const items = [];
+    for (const [id, list] of Object.entries(inv.contacted)) {
+      const lc = list[list.length - 1];
+      if (!lc || lc.at.slice(0, 10) < since) continue;
+      const r = byId.get(id);
+      if (!r) continue;
+      const booked = !!r.next || (r.last && r.last >= lc.at.slice(0, 10));
+      items.push({ r, lc, booked });
+    }
+    items.sort((a, b) => (a.lc.at < b.lc.at ? 1 : -1));
+    const n = items.length; const ok = items.filter((x) => x.booked).length;
+    box.innerHTML = n
+      ? `<p class="churn-summary">連絡 <b>${n}</b> 人 → 予約・来院 <b>${ok}</b> 人（${pct(ok, n)}%）</p><div class="inv-results">${items.map(({ r, lc, booked }) => `<div class="inv-result ${booked ? 'ok' : ''}"><span>${fmtMD(lc.at.slice(0, 10))} 連絡</span><b>${escapeHtml(r.name)}</b><span>${lc.date ? `${fmtMD(lc.date)} ${lc.time} の案内` : ''}</span><span class="res">${booked ? (r.next ? `予約あり ${fmtMD(r.next)}` : `来院 ${fmtMD(r.last)}`) : 'まだ'}</span></div>`).join('')}</div>`
+      : '<p class="admin-help">まだ連絡の記録がありません。</p>';
+  }
+
+  function bindInviteUi() {
+    if (!$('inv-date')) return;
+    const shift = (n) => { const dt = new Date(`${inv.date || todayYmd()}T00:00:00Z`); dt.setUTCDate(dt.getUTCDate() + n); loadInvite({ date: dt.toISOString().slice(0, 10) }); };
+    $('inv-prev').addEventListener('click', () => shift(-1));
+    $('inv-next').addEventListener('click', () => shift(1));
+    $('inv-date').addEventListener('change', (e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) loadInvite({ date: e.target.value }); });
+    $('inv-time').addEventListener('change', (e) => { inv.time = e.target.value; renderInviteText(); renderInviteGrid(); renderInviteList(); });
+    $('inv-copy').addEventListener('click', async () => {
+      const ok = await copyToClipboard($('inv-text').value);
+      const info = $('inv-info'); info.textContent = ok ? 'コピーしました。' : 'コピーできませんでした。'; info.hidden = false; setTimeout(() => { info.hidden = true; }, 2000);
+    });
+    const saveTpl = async (body) => {
+      const r = await apiFetch('/api/admin/settings');
+      const cur = (await r.json()).settings || {};
+      const w = await apiFetch('/api/admin/settings', { method: 'PUT', body: { ...cur, inviteTemplate: body } });
+      if (!w.ok) throw new Error('保存に失敗');
+    };
+    $('inv-save-template').addEventListener('click', async () => {
+      // 入力欄は差し込み済みなので、日時・院名などを差し込み記号に戻してテンプレートにする
+      const c = CLINICS[cust.clinic] || { name: '', phone: '' };
+      const wd = WD_JP[new Date(`${inv.date}T00:00:00Z`).getUTCDay()];
+      let body = $('inv-text').value
+        .split(`${fmtMD(inv.date)}（${wd}）`).join('{date}').split(inv.time).join('{time}')
+        .split(c.name).join('{clinic}').split(c.phone).join('{phone}').split(location.origin + '/').join('{url}');
+      try { await saveTpl(body); inv.template = body; const info = $('inv-info'); info.textContent = 'テンプレートを保存しました。'; info.hidden = false; setTimeout(() => { info.hidden = true; }, 2000); }
+      catch (e) { alert('保存できませんでした: ' + ((e && e.message) || e)); }
+    });
+    $('inv-reset-template').addEventListener('click', async () => {
+      if (!confirm('案内の文面を初期に戻しますか？')) return;
+      try { await saveTpl(''); inv.template = DEFAULT_INVITE_TEMPLATE; renderInviteText(); } catch { /* ignore */ }
+    });
   }
 
   // ---- 手動ブロック ----
