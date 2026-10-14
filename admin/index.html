@@ -43,6 +43,7 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-title">分析</div>
+        <button type="button" class="nav-item" data-section="summary"><span class="nav-icon">🗂️</span>月次まとめ</button>
         <button type="button" class="nav-item" data-section="stats"><span class="nav-icon">📈</span>新規継続率</button>
         <button type="button" class="nav-item" data-section="rates"><span class="nav-icon">📊</span>離反率・継続率</button>
         <button type="button" class="nav-item" data-section="symptoms"><span class="nav-icon">🩺</span>症状別</button>
@@ -226,6 +227,26 @@
       </section>
 
       <!-- 継続率・離反率 -->
+      <!-- 月次まとめ -->
+      <section class="admin-section" data-section="summary" hidden>
+        <div class="churn-toolbar">
+          <div class="clinic-tabs" role="tablist">
+            <button type="button" class="clinic-tab" data-clinic="192">長泉三島院</button>
+            <button type="button" class="clinic-tab" data-clinic="193">裾野長泉院</button>
+          </div>
+          <div class="churn-status">
+            <span class="cust-status-text">—</span>
+            <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">月</span>
+          <div class="filter-group" data-filter="summaryMonth" id="summary-month-chips"></div>
+        </div>
+        <div id="summary-body"><p class="admin-help">読み込み中…</p></div>
+        <div class="compose-slot stats-compose"></div>
+      </section>
+
       <section class="admin-section" data-section="stats" hidden>
         <div class="churn-toolbar">
           <div class="clinic-tabs" role="tablist">

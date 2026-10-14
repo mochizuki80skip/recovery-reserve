@@ -13,6 +13,7 @@
     bindPromoFilters();
     bindAdminNav();
     renderStatsMonthChips();
+    renderSummaryChips();
     bindCustomerUiOnce();
     showSection(sessionStorage.getItem(SECTION_KEY) || 'home');
     loadPromos();
@@ -29,6 +30,7 @@
     home: { title: 'ホーム', help: '離反リスト・キャンペーン・Threease との通信状況をまとめて確認できます。' },
     retention: { title: '離反対策リスト', help: '最終来院から60日以内の既存のお客様。次回予約が無い方に早めにご案内します。' },
     churn: { title: '離反リスト', help: '最終来院から60日以上あいていて次回予約が無いお客様。連絡する文面をその場で作れます。' },
+    summary: { title: '月次まとめ', help: '月を選ぶと、その月の新規・離反・来院・担当別・離反した人・曜日×時間帯・症状が1画面で見られます。' },
     stats: { title: '新規継続率', help: '新規のお客様が何回目まで続いているか、担当スタッフごとに見ます。' },
     rates: { title: '離反率・継続率', help: '最後に担当した人ごとの離反率と、既存のお客様の継続率（次回予約の有無）。' },
     symptoms: { title: '症状別', help: 'お客様情報の「症状」ごとに、人数・継続率・離反率・新規の到達率を見ます。' },
@@ -48,6 +50,7 @@
     window.scrollTo({ top: 0 });
     if (LIST_SECTIONS.includes(name)) loadCustomers(cust.clinic);
     if (name === 'block') loadBlockDay();
+    if (name === 'summary' && !patternLoaded(cust.clinic) && !monthly.loading) loadMonthly();
     if (name === 'monthly') loadMonthly();
   }
 
@@ -162,11 +165,11 @@
 前回（{last}）から{elapsed}日ほど経ちましたが、その後お身体はいかがですか？
 気になることがあればいつでもご連絡ください。ご予約はこちらから → {url}` },
   ];
-  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates', 'symptoms'];
+  const LIST_SECTIONS = ['retention', 'churn', 'stats', 'rates', 'symptoms', 'summary'];
 
   const cust = {
     clinic: '192', data: {}, loading: {}, templates: null, selected: null, templateId: null,
-    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
+    filters: { retNext: 'none', retMin: 0, churnRange: '60-90', statsMonth: '', summaryMonth: '', symMonths: 6, symMin: 3, wd: 'all', band: 'all' },
   };
 
   function fmtMD(ymd) { return ymd ? `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))}` : ''; }
@@ -310,6 +313,7 @@
     renderRates(d);
     renderSymptoms(d);
     if (currentSection() === 'monthly') renderMonthly();
+    if (currentSection() === 'summary') renderSummary();
   }
 
   function renderList(kind, rows, isHot) {
@@ -813,6 +817,122 @@
 
   function bindMonthlyUi() {
     $('monthly-refresh').addEventListener('click', () => loadMonthly({ force: true }));
+  }
+
+  // ---- 月次まとめ（その月の成績を1画面に） ----
+  function renderSummaryChips() {
+    const box = $('summary-month-chips');
+    if (!box) return;
+    const months = monthList(13);
+    if (!cust.filters.summaryMonth) cust.filters.summaryMonth = months[1] || months[0]; // 初期は前月
+    box.innerHTML = months.map((m) => `<button type="button" data-value="${m}" class="${m === cust.filters.summaryMonth ? 'is-active' : ''}">${Number(m.slice(5, 7))}月${m === months[0] ? '<small>（今月）</small>' : ''}</button>`).join('');
+  }
+  // invert=true は「減るほど良い」指標（離反）
+  const diffHtml = (cur, prev, unit = '', invert = false) => {
+    if (prev == null || cur == null) return '';
+    const d = Math.round((cur - prev) * 100) / 100;
+    if (!d) return '<small class="diff flat">前月と同じ</small>';
+    const good = invert ? d < 0 : d > 0;
+    return `<small class="diff ${good ? 'up' : 'down'}">前月比 ${d > 0 ? '+' : ''}${d}${unit}</small>`;
+  };
+  function monthMetrics(rows, md, month) {
+    const s = monthStart(month); const e = monthEnd(month);
+    const newN = rows.filter((r) => r.first && r.first >= s && r.first <= e).length;
+    const cs = addDays(s, -60); const ce = addDays(e, -60);
+    const churnRows = rows.filter((r) => r.last && r.last >= cs && r.last <= ce && !r.next);
+    const m = md[month]; const pm = md[prevMonth(month)];
+    const active = m && pm ? new Set([...m.visitorIds, ...pm.visitorIds]).size : (m ? m.visitors : null);
+    const per = m && m.visitors ? Math.round((m.visits / m.visitors) * 100) / 100 : null;
+    return { newN, churnN: churnRows.length, churnRows, net: newN - churnRows.length, visitors: m ? m.visitors : null, visits: m ? m.visits : null, per, active };
+  }
+  function renderSummary() {
+    const box = $('summary-body');
+    if (!box) return;
+    const clinic = cust.clinic;
+    const cd = cust.data[clinic];
+    if (!cd || cd.error) { box.innerHTML = '<p class="admin-help">お客様データを読み込み中…</p>'; return; }
+    const md = monthly.data[clinic] || {};
+    const month = cust.filters.summaryMonth || monthList(13)[1];
+    const rows = rowsWithElapsed(cd);
+    const today = rows[0] ? rows[0].today : todayYmd();
+    const judged = addDays(today, -60);
+    const s = monthStart(month); const e = monthEnd(month);
+    const cur = monthMetrics(rows, md, month);
+    const prev = monthMetrics(rows, md, prevMonth(month));
+    const loaded = patternLoaded(clinic);
+    const partial = e > judged;
+    const label = `${month.slice(0, 4)}年${Number(month.slice(5, 7))}月`;
+    const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
+
+    // 1) 要約
+    const tile = (num, unit, name, diff, cls = '') => `<div class="sum-tile ${cls}"><div class="sum-num"><b>${num == null ? '…' : num}</b><span>${unit}</span></div><div class="sum-name">${name}</div>${diff}</div>`;
+    let html = `<div class="stats-block sum-head"><h3>${label} の要約${e >= today ? '<small>今月は途中の数字です</small>' : ''}</h3>
+      <div class="sum-tiles">
+        ${tile(cur.newN, '人', '新規', diffHtml(cur.newN, prev.newN, '人'))}
+        ${tile(cur.churnN, '人', '離反', diffHtml(cur.churnN, prev.churnN, '人', true), 'bad')}
+        ${tile((cur.net > 0 ? '+' : '') + cur.net, '人', '純増', diffHtml(cur.net, prev.net, '人'), cur.net >= 0 ? 'good' : 'bad')}
+        ${tile(cur.active, '人', '既存人数', diffHtml(cur.active, prev.active, '人'))}
+        ${tile(cur.visitors, '人', '来院人数', diffHtml(cur.visitors, prev.visitors, '人'))}
+        ${tile(cur.visits, '回', '来院回数', diffHtml(cur.visits, prev.visits, '回'))}
+        ${tile(cur.per, '回', '一人当たり', diffHtml(cur.per, prev.per, '回'))}
+      </div>
+      ${loaded ? '' : `<p class="admin-help">来院人数・来院回数・既存人数・初回メニュー・曜日×時間帯は、来院データを読み込むと出ます。${patternNoteHtml()}</p>`}
+    </div>`;
+
+    // 2) 新規の内訳（初回メニュー別）
+    const cohort = rows.filter((r) => r.first && r.first >= s && r.first <= e)
+      .map((r) => { const f = loaded ? firstMenuOf(clinic, r) : null; return { ...r, menu: f ? f.menu : (loaded ? '（不明）' : '…') }; });
+    const partialNote = partial ? `<small>初回から60日経っていない方を含むため、2回目以降は途中の数字です</small>` : '';
+    if (loaded) {
+      html += `<div class="stats-block"><h3>新規 ${cohort.length} 人の内訳（初回メニュー別）${partialNote}</h3>
+        <div class="stats-table-wrap"><table class="stats-table cohort-table" data-key="menu"><thead><tr><th>初回メニュー</th><th>人数</th><th>2回目</th><th>3回目</th><th>6回目</th><th>次回予約あり</th><th>離反</th></tr></thead><tbody>
+        ${[['全体', cohort], ...groupBy(cohort, 'menu')].map(([k, list]) => `<tr class="staff-row"><th><button type="button" class="staff-btn" data-key="menu" data-staff="${escapeHtml(k)}">${escapeHtml(k)} <span class="caret">▾</span></button></th><td class="num">${list.length}</td>${[2, 3, 6].map((n) => pctCell(list.filter((r) => visits(r) >= n).length, list.length)).join('')}<td class="num">${list.filter((r) => !!r.next).length}</td><td class="num bad">${list.filter((r) => r.elapsed >= 60 && !r.next).length}</td></tr>`).join('')}
+        </tbody></table></div></div>`;
+    }
+
+    // 3) 担当別
+    html += `<div class="stats-block"><h3>担当別${partialNote}</h3>
+      <div class="sum-2col">
+        <div><h4>初回担当（その月の新規をどれだけ残したか）</h4><div class="stats-table-wrap"><table class="stats-table cohort-table" data-key="fs"><thead><tr><th>担当</th><th>新規</th><th>2回目</th><th>3回目</th><th>次回予約あり</th></tr></thead><tbody>
+        ${[['全体', cohort], ...groupBy(cohort, 'fs')].map(([k, list]) => `<tr class="staff-row"><th><button type="button" class="staff-btn" data-key="fs" data-staff="${escapeHtml(k)}">${escapeHtml(k)} <span class="caret">▾</span></button></th><td class="num">${list.length}</td>${[2, 3].map((n) => pctCell(list.filter((r) => visits(r) >= n).length, list.length)).join('')}<td class="num">${list.filter((r) => !!r.next).length}</td></tr>`).join('')}
+        </tbody></table></div></div>
+        <div><h4>最終担当（その月に離反した人の最後の担当）</h4><div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>担当</th><th>離反</th><th>割合</th></tr></thead><tbody>
+        ${[['全体', cur.churnRows], ...groupBy(cur.churnRows, 'ls')].map(([k, list]) => `<tr><th>${escapeHtml(k)}</th><td class="num">${list.length}</td><td class="num muted">${pct(list.length, cur.churnRows.length) == null ? '–' : pct(list.length, cur.churnRows.length) + '%'}</td></tr>`).join('')}
+        </tbody></table></div></div>
+      </div></div>`;
+
+    // 4) 離反した人
+    const churnList = cur.churnRows.slice().sort((a, b) => (a.last < b.last ? -1 : a.last > b.last ? 1 : 0));
+    html += `<div class="stats-block"><h3>${label} に離反した人 <small>最終来院 ${fmtMD(addDays(s, -60))}〜${fmtMD(addDays(e, -60))}・その後の来院も次回予約も無い ${churnList.length} 人</small></h3>
+      <div class="cohort-list">${churnList.map((r) => `<div class="cohort-person">
+          <div class="cp-name">${escapeHtml(r.name || '(名前なし)')} 様 <small>カルテ ${escapeHtml(r.code || '-')}</small></div>
+          <div class="cp-meta">最終来院 <b>${fmtMD(r.last)}</b>${r.ls ? `（${escapeHtml(r.ls)}）` : ''} ／ 来院 <b>${visits(r)}</b> 回 ／ 初回 ${fmtMD(r.first)}${r.fs ? `（${escapeHtml(r.fs)}）` : ''} ${loaded ? firstMenuHtml(r) : ''}${r.sym && r.sym.length ? ` ／ ${escapeHtml(r.sym.join('・'))}` : ''}</div>
+          <button type="button" class="admin-btn-mini" data-compose-sum="${r.id}">文面を作る</button>
+        </div>`).join('') || '<p class="admin-help">いません</p>'}</div></div>`;
+
+    // 5) 曜日×時間帯
+    if (loaded && md[month] && md[month].slots) {
+      const grid = {}; let max = 0; const hours = [];
+      for (const list of Object.values(md[month].slots)) for (const sl of list) { const [wd, h] = sl.split('-').map(Number); grid[wd] ||= {}; grid[wd][h] = (grid[wd][h] || 0) + 1; max = Math.max(max, grid[wd][h]); if (!hours.includes(h)) hours.push(h); }
+      hours.sort((a, b) => a - b);
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      html += `<div class="stats-block"><h3>曜日 × 時間帯の来院数<small>濃いほど多い（${label}・${md[month].visits} 回）</small></h3>
+        <div class="stats-table-wrap"><table class="stats-table heat-table"><thead><tr><th></th>${hours.map((h) => `<th>${h}時</th>`).join('')}<th>計</th></tr></thead><tbody>
+        ${order.map((wd) => { const row = grid[wd] || {}; const tot = Object.values(row).reduce((a, b) => a + b, 0); return `<tr><th>${WD_JP[wd]}</th>${hours.map((h) => { const n = row[h] || 0; const a = max ? n / max : 0; return `<td class="num heat" style="background: rgba(156,135,83,${(a * 0.75).toFixed(2)}); color: ${a > 0.55 ? '#fff' : 'inherit'}">${n || ''}</td>`; }).join('')}<td class="num"><b>${tot}</b></td></tr>`; }).join('')}
+        </tbody></table></div></div>`;
+    }
+
+    // 6) 症状
+    const symC = new Map();
+    for (const r of cohort) for (const sy of (r.sym || [])) symC.set(sy, (symC.get(sy) || 0) + 1);
+    const top = [...symC.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    html += `<div class="stats-block"><h3>新規の症状 トップ5<small>${cohort.length} 人中、症状の登録あり ${cohort.filter((r) => r.sym && r.sym.length).length} 人</small></h3>
+      ${top.length ? `<div class="sym-bars">${top.map(([k, n]) => `<div class="sym-bar"><span class="sym-label">${escapeHtml(k)}</span><span class="sym-track"><span class="sym-fill" style="width:${Math.round((n / top[0][1]) * 100)}%"></span></span><span class="sym-n">${n}</span></div>`).join('')}</div>` : '<p class="admin-help">登録がありません</p>'}</div>`;
+
+    box.innerHTML = html;
+    bindStaffRows(box, cohort);
+    box.querySelectorAll('button[data-compose-sum]').forEach((b) => b.addEventListener('click', () => openCompose(churnList.find((r) => String(r.id) === b.dataset.composeSum), 'summary')));
+    box.querySelectorAll('button.pattern-load').forEach((b) => b.addEventListener('click', () => loadMonthly()));
   }
 
   // ---- 手動ブロック ----
