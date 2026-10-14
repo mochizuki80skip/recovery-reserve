@@ -242,3 +242,19 @@
 .churn-meta .pattern.muted { color: var(--ink-faint); }
 .churn-summary .link-btn { font-size: 13px; }
 .filter-group button small { font-size: 10px; color: inherit; opacity: .7; margin-left: 2px; }
+/* 新規継続率: 担当名タップで一覧 */
+.staff-btn { appearance: none; border: 0; background: none; font: inherit; font-weight: 700; color: var(--gold-deep); cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px; }
+.staff-btn .caret { font-size: 11px; color: var(--ink-faint); }
+tr.is-open .staff-btn .caret { transform: rotate(180deg); }
+tr.is-open th, tr.is-open td { background: var(--gold-bg) !important; }
+.cohort-detail td { padding: 8px 10px 12px; background: #fdfbf3; white-space: normal; }
+.cohort-list { display: flex; flex-direction: column; gap: 6px; }
+.cohort-person { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.cp-name { font-weight: 700; font-size: 14px; }
+.cp-name small { font-weight: 400; color: var(--ink-faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; margin-left: 4px; }
+.cp-meta { grid-column: 1; font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; white-space: normal; }
+.cp-meta b { color: var(--ink); }
+.cp-meta .st.good { color: #3f8a55; font-weight: 700; }
+.cp-meta .st.bad { color: var(--error-ink); font-weight: 700; }
+.cohort-person .admin-btn-mini { grid-column: 2; grid-row: 1 / span 2; }
+.stats-compose { margin-top: 12px; }

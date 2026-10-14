@@ -352,10 +352,40 @@
   }
   function continuationTable(rows, key, title) {
     const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
-    const line = (label, list) => `<tr><th>${escapeHtml(label)}</th><td class="num">${list.length}</td>${[2, 3, 4, 5, 6].map((k) => pctCell(list.filter((r) => visits(r) >= k).length, list.length)).join('')}</tr>`;
-    return `<div class="stats-block"><h3>${escapeHtml(title)}</h3>
-      <div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>担当</th><th>新規</th><th>2回目</th><th>3回目</th><th>4回目</th><th>5回目</th><th>6回目</th></tr></thead>
+    // 担当名はボタン。タップでその人が担当した新規の一覧を下に開く（bindStaffRows で動きを付ける）
+    const line = (label, list) => `<tr class="staff-row"><th><button type="button" class="staff-btn" data-key="${key}" data-staff="${escapeHtml(label)}">${escapeHtml(label)} <span class="caret">▾</span></button></th><td class="num">${list.length}</td>${[2, 3, 4, 5, 6].map((k) => pctCell(list.filter((r) => visits(r) >= k).length, list.length)).join('')}</tr>`;
+    return `<div class="stats-block"><h3>${escapeHtml(title)}<small>担当の名前をタップすると、その方が担当した新規の一覧が開きます</small></h3>
+      <div class="stats-table-wrap"><table class="stats-table cohort-table" data-key="${key}"><thead><tr><th>担当</th><th>新規</th><th>2回目</th><th>3回目</th><th>4回目</th><th>5回目</th><th>6回目</th></tr></thead>
       <tbody>${line('全体', rows)}${groupBy(rows, key).map(([k, list]) => line(k, list)).join('')}</tbody></table></div></div>`;
+  }
+  // 担当名タップ → その担当の新規一覧（名前・カルテ・初回・来院回数・いまの状態）を行の下に開く
+  function cohortStatus(r) {
+    if (r.next) return `<span class="st good">次回予約あり ${fmtMD(r.next)}</span>`;
+    if (r.elapsed != null && r.elapsed >= 60) return `<span class="st bad">離反（最終来院 ${fmtMD(r.last)}・${r.elapsed}日）</span>`;
+    return `<span class="st">通院中（最終来院 ${fmtMD(r.last)}・${r.elapsed}日前）</span>`;
+  }
+  function bindStaffRows(box, cohort) {
+    const visits = (r) => Math.max(0, r.count - (r.next ? 1 : 0));
+    box.querySelectorAll('.staff-btn').forEach((btn) => btn.addEventListener('click', () => {
+      const tr = btn.closest('tr');
+      const next = tr.nextElementSibling;
+      if (next && next.classList.contains('cohort-detail')) { next.remove(); tr.classList.remove('is-open'); return; }
+      const key = btn.dataset.key; const staff = btn.dataset.staff;
+      const list = (staff === '全体' ? cohort : cohort.filter((r) => (r[key] || '（担当なし）') === staff))
+        .slice().sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : 0));
+      const cols = tr.children.length;
+      const rowsHtml = list.map((r) => `<div class="cohort-person">
+          <div class="cp-name">${escapeHtml(r.name || '(名前なし)')} 様 <small>カルテ ${escapeHtml(r.code || '-')}</small></div>
+          <div class="cp-meta">初回 <b>${fmtMD(r.first)}</b>${r.fs ? `（${escapeHtml(r.fs)}）` : ''} ／ 来院 <b>${visits(r)}</b> 回 ／ ${cohortStatus(r)}${r.ls && r.ls !== r.fs ? ` ／ 最終担当 ${escapeHtml(r.ls)}` : ''}${r.sym && r.sym.length ? ` ／ ${escapeHtml(r.sym.join('・'))}` : ''}</div>
+          <button type="button" class="admin-btn-mini" data-compose-stats="${r.id}">文面を作る</button>
+        </div>`).join('');
+      const detail = document.createElement('tr');
+      detail.className = 'cohort-detail';
+      detail.innerHTML = `<td colspan="${cols}"><div class="cohort-list">${rowsHtml || '<p class="admin-help">該当なし</p>'}</div></td>`;
+      tr.after(detail);
+      tr.classList.add('is-open');
+      detail.querySelectorAll('button[data-compose-stats]').forEach((b) => b.addEventListener('click', () => openCompose(list.find((r) => String(r.id) === b.dataset.composeStats), 'stats')));
+    }));
   }
   function churnTable(rows, key, title) {
     const line = (label, list) => { const churned = list.filter((r) => !r.next).length; const p = pct(churned, list.length); const cls = p == null ? 'muted' : p <= 30 ? 'good' : p <= 50 ? 'warn' : 'bad';
@@ -383,9 +413,10 @@
       summary = `対象: ${sel.replace('-', '/')} に初めて来院した新規 <b>${cohort.length}</b> 人${partial ? `<br><span class="muted">※ 初回から60日経っていない方を含むため、数字はまだ途中です（${fmtMD(judged)} 以降に初めて来た方）</span>` : ''}`;
     }
     box.innerHTML = `<p class="churn-summary">${summary}</p>`
-      + cohortByMonthTable(rows, judged)
       + continuationTable(cohort, 'fs', '継続率（初回担当スタッフ別）')
-      + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）');
+      + continuationTable(cohort, 'ls', '継続率（最終担当スタッフ別）')
+      + cohortByMonthTable(rows, judged);
+    bindStaffRows(box, cohort);
   }
   // 「初回来院の月」チップ（今月→過去12か月→12か月すべて）。判定しきれない月は（途中）
   function defaultStatsMonth(judged) {
