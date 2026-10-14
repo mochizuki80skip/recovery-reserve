@@ -240,17 +240,17 @@
             <button type="button" class="admin-btn-mini cust-refresh">Threease から読み直す</button>
           </div>
         </div>
-        <p class="admin-help">埋めたい日時を選ぶと、その時間帯に来そうなお客様（次回予約なし）が合う順に並びます。文面をコピーして公式LINEやSMSに貼り、送ったら「連絡済み」にします。文面は「全体へのご案内」の書き方で、特定の先生からの個人的な連絡にはしません。</p>
+        <p class="admin-help">埋めたい日と時間帯（午前・昼・夕方）を選ぶと、その時間帯に来ているお客様（次回予約なし）が並びます。文面をコピーして公式LINEやSMSに貼り、送ったら「連絡済み」にします。文面は「全体へのご案内」の書き方で、特定の先生からの個人的な連絡にはしません。</p>
 
         <div class="stats-block invite-pick">
-          <h3>① 埋めたい日時</h3>
+          <h3>① 埋めたい日と時間帯</h3>
           <div class="blk-datenav">
             <button type="button" class="admin-btn-mini" id="inv-prev">‹ 前日</button>
             <input type="date" id="inv-date">
             <button type="button" class="admin-btn-mini" id="inv-next">翌日 ›</button>
-            <select id="inv-time"></select>
-            <span class="admin-help inv-hint">下の表の白い枠（空き）をタップしても選べます</span>
           </div>
+          <div class="filter-group inv-bands" id="inv-bands"></div>
+          <p class="admin-help inv-hint">時間帯は3つ。下の表は空きの目安です（白い枠をタップしてもその時間帯を選べます）</p>
           <div id="inv-grid" class="blk-grid-wrap inv-grid"><p class="admin-help">読み込み中…</p></div>
         </div>
 
@@ -266,8 +266,13 @@
         </div>
 
         <div class="stats-block">
-          <h3>③ 案内する候補 <small>合う順。グレーは最近連絡した人</small></h3>
+          <h3>③ その時間帯に来ている人 <small>よく来る順。グレーは最近連絡した人</small></h3>
           <div class="filter-row">
+            <span class="filter-label">曜日</span>
+            <div class="filter-group" data-filter="invWd">
+              <button type="button" data-value="same" class="is-active">その曜日に来ている人</button>
+              <button type="button" data-value="any">曜日を問わない</button>
+            </div>
             <span class="filter-label">対象</span>
             <div class="filter-group" data-filter="invScope">
               <button type="button" data-value="both" class="is-active">既存＋離反</button>
